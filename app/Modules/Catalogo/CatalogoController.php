@@ -95,7 +95,9 @@ final class CatalogoController
             'producto'   => $producto,
             'errores'    => [],
             'valores'    => $producto,
-            'escalas'    => $this->repo->escalas((int) $producto['id']),
+            // El repositorio las da de mayor a menor (para calcular precios);
+            // en el formulario se capturan de menor a mayor.
+            'escalas'    => array_reverse($this->repo->escalas((int) $producto['id'])),
             'puede'      => true,
         ]);
     }
