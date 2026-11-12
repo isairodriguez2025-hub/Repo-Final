@@ -114,14 +114,60 @@ $contenido = '<h1>Buscar productos</h1>'
     . '<select name="orden" style="flex:0 0 160px">' . $opcionesOrden . '</select>'
     . '<button type="submit">Buscar</button>'
     . '</form>'
-    . '<div id="mapa" class="mapa"></div>'
-    . '<div class="fichas">' . $fichas . '</div>'
-    . ($paginacion !== '' ? '<div class="paginacion">' . $paginacion . '</div>' : '');
+    . '<div class="buscador">'
+    . '<div class="buscador__mapa"><div id="mapa" class="mapa"></div></div>'
+    . '<div class="buscador__resultados">' . $fichas
+    . ($paginacion !== '' ? '<div class="paginacion">' . $paginacion . '</div>' : '')
+    . '</div></div>';
 
 $estilos = <<<'CSS'
-.filtros { display:flex; gap:10px; flex-wrap:wrap; margin:20px 0; align-items:center; }
-.filtros input, .filtros select { height:42px; }
-.mapa { height:380px; border-radius:12px; border:1px solid #e8e6df; margin-bottom:22px; z-index:1; }
+.filtros {
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:20px 0;
+    background:#fff; border:1px solid #E5E7EB; border-radius:14px; padding:12px;
+}
+.filtros input,
+.filtros select {
+    height:44px; padding:0 14px; font-size:14px; color:#111827; background:#fff;
+    border:1px solid #E5E7EB; border-radius:10px;
+    transition:border-color .18s ease, box-shadow .18s ease;
+}
+.filtros input::placeholder { color:#9ca3af; }
+.filtros input:focus,
+.filtros select:focus {
+    outline:none; border-color:#1f4d3a; box-shadow:0 0 0 3px rgba(31,77,58,.10);
+}
+.filtros select {
+    appearance:none; -webkit-appearance:none; -moz-appearance:none; cursor:pointer;
+    padding-right:38px; background-repeat:no-repeat; background-position:right 14px center;
+    background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+}
+.filtros button {
+    height:44px; padding:0 22px; font-size:14px; font-weight:500; color:#fff;
+    background:#1f4d3a; border:0; border-radius:10px; cursor:pointer; white-space:nowrap;
+    transition:background .18s ease, transform .1s ease;
+}
+.filtros button:hover { background:#17392b; }
+.filtros button:active { transform:translateY(1px); }
+
+/* Dos columnas solo en computadora */
+.buscador { display:grid; grid-template-columns:1fr; gap:18px; align-items:start; }
+.buscador__mapa { position:relative; }
+.mapa {
+    height:340px; width:100%; border-radius:14px; overflow:hidden;
+    box-shadow:0 4px 18px rgba(17,24,39,.07); border:1px solid #E5E7EB; z-index:1;
+}
+@media (min-width:992px) {
+    .buscador { grid-template-columns:1.1fr 1fr; gap:22px; }
+    .buscador__mapa { position:sticky; top:76px; }
+    .mapa { height:calc(100vh - 150px); min-height:520px; }
+    .buscador__resultados {
+        max-height:calc(100vh - 150px); overflow-y:auto; padding-right:6px;
+        container-type:inline-size;
+    }
+    .buscador__resultados::-webkit-scrollbar { width:8px; }
+    .buscador__resultados::-webkit-scrollbar-thumb { background:#d9d7d0; border-radius:8px; }
+    .buscador__resultados::-webkit-scrollbar-track { background:transparent; }
+}
 .fichas { display:grid; grid-template-columns:1fr; gap:12px; max-width:820px; }
 .ficha {
     display:flex; justify-content:space-between; align-items:flex-start; gap:24px;
@@ -164,10 +210,20 @@ $estilos = <<<'CSS'
 .btn-agregar:hover { background:#17392b; }
 .ficha__ver { font-size:12px; color:#6b7280; text-decoration:none; border-bottom:1px solid #e5e7eb; margin-left:2px; }
 .ficha__ver:hover { color:#1f4d3a; border-bottom-color:#1f4d3a; }
+/* Cuando la columna de resultados es angosta, la ficha se acomoda sola:
+   se consulta el ancho del contenedor, no el de la ventana. */
+@container (max-width: 520px) {
+    .ficha { flex-direction:column; gap:12px; }
+    .ficha__der {
+        flex-direction:row; align-items:center; justify-content:flex-start;
+        flex-wrap:wrap; width:100%; gap:10px;
+    }
+    .ficha__compra { margin-left:auto; }
+}
 @media (max-width:560px) {
     .ficha { flex-direction:column; gap:14px; padding:14px 16px; }
     .ficha__der { align-items:flex-start; width:100%; }
-    .ficha__compra { width:100%; }
+    .ficha__compra { width:100%; margin-left:0; }
 }
 .paginacion { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:28px; }
 CSS;

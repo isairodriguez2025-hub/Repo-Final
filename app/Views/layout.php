@@ -215,9 +215,16 @@ foreach ($enlaces as [$href, $texto]) {
         .vacio { color: var(--gris-claro); padding: 20px 0; }
         <?= $estilos ?? '' ?>
         @media (max-width: 640px) {
-            .barra__interior { gap: 16px; padding: 0 16px; }
-            nav { gap: 14px; }
-            main { padding: 28px 16px 56px; }
+            .barra__interior { gap: 14px; padding: 0 16px; height: 56px; }
+            /* En móvil la marca se queda en "Didi2" y el menú se desliza. */
+            .marca span { display: none; }
+            nav {
+                gap: 16px; overflow-x: auto; white-space: nowrap;
+                scrollbar-width: none; -ms-overflow-style: none;
+            }
+            nav::-webkit-scrollbar { display: none; }
+            nav a { flex: 0 0 auto; }
+            main { padding: 24px 16px 48px; }
             h1 { font-size: 22px; }
         }
     </style>
