@@ -21,6 +21,8 @@ final class PedidosController
         'listo'        => 'listo_para_recoger',
         'buscar-reparto' => 'buscando_repartidor',
         'cancelar'     => 'cancelado',
+        'en-camino'    => 'en_camino',
+        'en-puerta'    => 'en_puerta',
     ];
 
     public function __construct(
@@ -64,6 +66,30 @@ final class PedidosController
         $id = $stmt->fetchColumn();
 
         return $id === false ? null : (int) $id;
+    }
+
+    private function repartidorId(): ?int
+    {
+        $stmt = $this->pdo->prepare('SELECT id FROM repartidores_perfil WHERE usuario_id = ? LIMIT 1');
+        $stmt->execute([$this->usuarioId()]);
+        $id = $stmt->fetchColumn();
+
+        return $id === false ? null : (int) $id;
+    }
+
+    /** ¿El envío del pedido está asignado a este repartidor? */
+    private function esSuEnvio(int $pedidoId): bool
+    {
+        $repartidorId = $this->repartidorId();
+
+        if ($repartidorId === null) {
+            return false;
+        }
+
+        $stmt = $this->pdo->prepare('SELECT 1 FROM envios WHERE pedido_id = ? AND repartidor_id = ? LIMIT 1');
+        $stmt->execute([$pedidoId, $repartidorId]);
+
+        return $stmt->fetchColumn() !== false;
     }
 
     private function comercioId(): ?int
@@ -185,8 +211,9 @@ final class PedidosController
 
         $esMayorista = $this->mayoristaId() === (int) $pedido['mayorista_id'];
         $esComercio = $this->comercioId() === (int) $pedido['comercio_id'];
+        $esRepartidor = $this->esSuEnvio((int) $pedido['id']);
 
-        if (!$esMayorista && !$esComercio) {
+        if (!$esMayorista && !$esComercio && !$esRepartidor) {
             return Response::json(['ok' => false, 'error' => ['code' => 'PROHIBIDO', 'message' => 'Este pedido no es tuyo.']], 403);
         }
 
@@ -195,8 +222,9 @@ final class PedidosController
             'pedido'      => $pedido,
             'lineas'      => $this->detallePedido((int) $pedido['id']),
             'eventos'     => $this->servicio->eventos((int) $pedido['id']),
-            'esMayorista' => $esMayorista,
-            'esComercio'  => $esComercio,
+            'esMayorista'  => $esMayorista,
+            'esComercio'   => $esComercio,
+            'esRepartidor' => $esRepartidor,
             'mensaje'     => $peticion->query('ok') !== null ? 'Pedido actualizado.' : null,
             'error'       => $peticion->query('error'),
         ]);
@@ -217,8 +245,9 @@ final class PedidosController
         // mayorista podría aceptar o cancelar pedidos de otro.
         $esMayoristaDueno = $this->mayoristaId() === (int) $pedido['mayorista_id'];
         $esComercioDueno = $this->comercioId() === (int) $pedido['comercio_id'];
+        $esRepartidorDueno = $this->esSuEnvio((int) $pedido['id']);
 
-        if (!$esMayoristaDueno && !$esComercioDueno) {
+        if (!$esMayoristaDueno && !$esComercioDueno && !$esRepartidorDueno) {
             return Response::json([
                 'ok'    => false,
                 'error' => ['code' => 'PROHIBIDO', 'message' => 'Este pedido no es tuyo.'],

@@ -6,6 +6,7 @@
 /** @var array $eventos */
 /** @var bool $esMayorista */
 /** @var bool $esComercio */
+/** @var bool $esRepartidor */
 /** @var string|null $mensaje */
 /** @var string|null $error */
 
@@ -63,6 +64,41 @@ if ($esComercio && $estado === 'borrador') {
         . '<button type="submit" style="padding:9px 16px;font-size:14px">Confirmar pago</button></form>';
 }
 
+// --- Vista del repartidor -------------------------------------------------
+if ($esRepartidor) {
+    $pinCampo = static function (string $accion, string $texto, string $etiqueta, int $largo) use ($e, $csrf, $pedido): string {
+        return '<form method="post" action="/repartidor/pedidos/' . $e($pedido['uuid']) . '/' . $accion . '" style="display:flex;gap:8px;align-items:center;margin:0">'
+            . '<input type="hidden" name="_csrf" value="' . $e($csrf) . '">'
+            . '<input name="pin" inputmode="numeric" maxlength="' . $largo . '" placeholder="PIN de ' . $largo . ' dígitos" required'
+            . ' style="height:42px;width:210px;letter-spacing:.3em;text-align:center">'
+            . '<button type="submit" style="padding:9px 16px;font-size:14px">' . $e($texto) . '</button>'
+            . '<span style="font-size:13px;color:#6b7280">' . $e($etiqueta) . '</span></form>';
+    };
+
+    $paso = static function (string $accion, string $texto) use ($e, $csrf, $pedido): string {
+        return '<form method="post" action="/pedidos/' . $e($pedido['uuid']) . '/' . $accion . '" style="display:inline;margin:0 8px 0 0">'
+            . '<input type="hidden" name="_csrf" value="' . $e($csrf) . '">'
+            . '<button type="submit" style="padding:9px 16px;font-size:14px">' . $e($texto) . '</button></form>';
+    };
+
+    $acciones = match ($estado) {
+        'repartidor_asignado' => $pinCampo('recolectar', 'Confirmar recolección', 'Pídelo al mayorista', 6),
+        'en_recoleccion'      => $paso('en-camino', 'Salir a entregar'),
+        'en_camino'           => $paso('en-puerta', 'Llegué al comercio'),
+        'en_puerta'           => $pinCampo('entregar', 'Confirmar entrega', 'Pídelo al comercio', 4),
+        default               => '',
+    };
+}
+
+// El comercio ve su PIN cuando el repartidor está en la puerta.
+$avisoPin = '';
+if ($esComercio && $estado === 'en_puerta' && !empty($pedido['pin_entrega_visible'])) {
+    $avisoPin = '<div class="aviso aviso--alerta" style="text-align:center">'
+        . '<div style="font-size:13px">Da este código al repartidor</div>'
+        . '<div style="font-size:34px;font-weight:700;letter-spacing:.3em;margin-top:4px">'
+        . $e((string) $pedido['pin_entrega_visible']) . '</div></div>';
+}
+
 $contenido = '<h1>Pedido ' . $e(substr((string) $pedido['uuid'], 0, 8)) . '</h1>'
     . '<p>' . $e($pedido['mayorista']) . ' → ' . $e($pedido['comercio']) . '</p>'
     . ($mensaje !== null ? '<div class="aviso aviso--ok">' . $e($mensaje) . '</div>' : '')
@@ -72,6 +108,7 @@ $contenido = '<h1>Pedido ' . $e(substr((string) $pedido['uuid'], 0, 8)) . '</h1>
     . '<div><div style="font-size:12px;color:#9ca3af">Total</div><div style="font-weight:600">$' . number_format((float) $pedido['total'], 2) . '</div></div>'
     . '<div><div style="font-size:12px;color:#9ca3af">Entrega</div><div style="font-weight:500">' . $e($pedido['calle']) . ', ' . $e($pedido['ciudad']) . '</div></div>'
     . '</div>'
+    . $avisoPin
     . ($acciones !== '' ? '<div style="margin:18px 0">' . $acciones . '</div>' : '')
     . '<h2>Productos</h2>'
     . '<table><thead><tr><th>Producto</th><th>Cant.</th><th>Unitario</th><th>Subtotal</th></tr></thead><tbody>' . $filas . '</tbody></table>'

@@ -210,7 +210,7 @@ $router->get('/pedidos', [$pedidos, 'misPedidos'], $soloComercio);
 $router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}', [$pedidos, 'detalle'], [$seguridad, new AuthRequired()]);
 $router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}/surtido', [$pedidos, 'surtido'], [$seguridad, new AuthRequired()]);
 $router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/pagar', [$pedidos, 'pagar'], [...$soloComercio, new CsrfProtect()]);
-$router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/{accion:aceptar|rechazar|preparando|listo|buscar-reparto|cancelar}',
+$router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/{accion:aceptar|rechazar|preparando|listo|buscar-reparto|cancelar|en-camino|en-puerta}',
     [$pedidos, 'accion'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 
 $router->get('/mayorista/pedidos', [$pedidos, 'bandeja'], [$seguridad, new AuthRequired(), new RoleRequired(['mayorista'])]);

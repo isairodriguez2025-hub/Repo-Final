@@ -25,8 +25,13 @@ final class PruebaEntregaService
         $pin = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $hash = password_hash($pin, PASSWORD_BCRYPT);
 
-        $this->pdo->prepare('UPDATE envios SET codigo_recoleccion_hash = ? WHERE pedido_id = ?')
-            ->execute([$hash, $pedidoId]);
+        // El envío puede no existir todavía: el mayorista marca "listo" antes
+        // de buscar repartidor. Con UPDATE simple el PIN se perdía en silencio.
+        $this->pdo->prepare(
+            "INSERT INTO envios (pedido_id, codigo_recoleccion_hash, estado)
+             VALUES (?, ?, 'pendiente')
+             ON DUPLICATE KEY UPDATE codigo_recoleccion_hash = VALUES(codigo_recoleccion_hash)"
+        )->execute([$pedidoId, $hash]);
 
         return $pin;
     }
