@@ -108,7 +108,7 @@ $estilos = <<<'CSS'
 .filtros { display:flex; gap:10px; flex-wrap:wrap; margin:20px 0; align-items:center; }
 .filtros input, .filtros select { height:42px; }
 .mapa { height:380px; border-radius:12px; border:1px solid #e8e6df; margin-bottom:22px; z-index:1; }
-.fichas { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+.fichas { display:grid; grid-template-columns:1fr; gap:12px; max-width:760px; }
 .ficha { background:#fff; border:1px solid #e8e6df; border-radius:12px; padding:16px; cursor:pointer;
          transition:border-color .15s, box-shadow .15s; }
 .ficha:hover { border-color:#c9d6cd; }
@@ -130,6 +130,7 @@ CSS;
 $scripts = <<<JS
 const datos = {$json};
 const mapa = L.map('mapa', { scrollWheelZoom: false }).setView([{$lat}, {$lng}], 12);
+window.mapa = mapa; // expuesto para depuración
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19, attribution: '© OpenStreetMap'
 }).addTo(mapa);
@@ -159,16 +160,44 @@ document.querySelectorAll('.ficha').forEach(f => {
     f.addEventListener('click', () => resaltar(parseInt(f.dataset.i, 10), true));
 });
 
-// Al mover el mapa se actualizan las coordenadas y se repite la búsqueda.
+// Los desplegables aplican el filtro al cambiar. Se hace con listeners y no
+// con onchange en el HTML porque el CSP no permite manejadores en línea.
+document.querySelectorAll('.filtros select').forEach(sel => {
+    sel.addEventListener('change', () => document.querySelector('.filtros').submit());
+});
+
+// Al mover el mapa se actualizan las coordenadas y se repite la búsqueda,
+// pero solo si el centro se desplazó de verdad. Hacer zoom no debe recargar
+// la página: era lo que hacía sentir lento el mapa.
 let temporizador = null;
+let centroPrevio = mapa.getCenter();
+
+function distanciaKm(a, b) {
+    const R = 6371, rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad;
+    const dLng = (b.lng - a.lng) * rad;
+    const h = Math.sin(dLat / 2) ** 2 +
+              Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+}
+
 mapa.on('moveend', () => {
     const c = mapa.getCenter();
+    const movido = distanciaKm(centroPrevio, c);
+
     document.getElementById('f-lat').value = c.lat.toFixed(6);
     document.getElementById('f-lng').value = c.lng.toFixed(6);
+
+    // Menos de 300 m es un ajuste de zoom o un temblor: no se recarga.
+    if (movido < 0.3) {
+        return;
+    }
+
+    centroPrevio = c;
     clearTimeout(temporizador);
     temporizador = setTimeout(() => {
         document.querySelector('.filtros').submit();
-    }, 500);
+    }, 600);
 });
 JS;
 
