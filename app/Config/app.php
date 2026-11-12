@@ -56,6 +56,11 @@ use App\Modules\Favoritos\FavoritoService;
 use App\Modules\Favoritos\FavoritosController;
 use App\Modules\Programados\ProgramadoService;
 use App\Modules\Programados\ProgramadosController;
+use App\Modules\Confianza\ChatService;
+use App\Modules\Confianza\ConfianzaController;
+use App\Modules\Confianza\ReclamoService;
+use App\Modules\Confianza\ResenaService;
+use App\Modules\Finanzas\FinanzasService;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -192,6 +197,15 @@ $favoritosCtl = new FavoritosController($favoritoService, $pdo, __DIR__ . '/../V
 $programadoService = new ProgramadoService($pdo, new \App\Modules\Catalogo\PrecioService(), $notificaciones);
 $programadosCtl = new ProgramadosController($programadoService, $pdo, __DIR__ . '/../Views');
 
+$confianza = new ConfianzaController(
+    new ResenaService($pdo),
+    new ChatService($pdo),
+    new ReclamoService($pdo, $pedidoService),
+    new FinanzasService($pdo),
+    $pdo,
+    __DIR__ . '/../Views',
+);
+
 $worker = new Worker($pdo, $pedidoService, $notificaciones, $programadoService);
 $tick = new TickController($worker, (string) ($_ENV['WORKER_TOKEN'] ?? ''));
 
@@ -252,6 +266,13 @@ $router->post('/tracking/posicion', [$trackingCtl, 'posicion'], [...$soloReparti
 // --- Seguimiento -----------------------------------------------------------
 $router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}/tracking', [$trackingCtl, 'json'], [$seguridad, new AuthRequired()]);
 $router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}/seguimiento', [$trackingCtl, 'mapa'], [$seguridad, new AuthRequired()]);
+
+// --- Confianza: reseñas, chat, reclamos y finanzas ------------------------
+$router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/resena', [$confianza, 'resenar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
+$router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/mensaje', [$confianza, 'mensaje'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
+$router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/reclamo', [$confianza, 'reclamar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
+$router->get('/finanzas', [$confianza, 'finanzas'], [$seguridad, new AuthRequired()]);
+$router->get('/finanzas/export', [$confianza, 'exportar'], [$seguridad, new AuthRequired()]);
 
 // --- Favoritos y programados ----------------------------------------------
 $router->get('/favoritos', [$favoritosCtl, 'index'], $soloComercio);
