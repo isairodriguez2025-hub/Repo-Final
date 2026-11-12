@@ -52,6 +52,10 @@ use App\Modules\Logistica\RepartidorController;
 use App\Modules\Logistica\TarifaService;
 use App\Modules\Logistica\TrackingController;
 use App\Modules\Logistica\TrackingService;
+use App\Modules\Favoritos\FavoritoService;
+use App\Modules\Favoritos\FavoritosController;
+use App\Modules\Programados\ProgramadoService;
+use App\Modules\Programados\ProgramadosController;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -182,7 +186,13 @@ $carrito = new CarritoController(
     __DIR__ . '/../Views',
 );
 
-$worker = new Worker($pdo, $pedidoService, $notificaciones);
+$favoritoService = new FavoritoService($pdo, $carritoService);
+$favoritosCtl = new FavoritosController($favoritoService, $pdo, __DIR__ . '/../Views');
+
+$programadoService = new ProgramadoService($pdo, new \App\Modules\Catalogo\PrecioService(), $notificaciones);
+$programadosCtl = new ProgramadosController($programadoService, $pdo, __DIR__ . '/../Views');
+
+$worker = new Worker($pdo, $pedidoService, $notificaciones, $programadoService);
 $tick = new TickController($worker, (string) ($_ENV['WORKER_TOKEN'] ?? ''));
 
 $configPagos = require __DIR__ . '/pagos.php';
@@ -199,6 +209,7 @@ $repartidorCtl = new RepartidorController($asignacion, $pruebas, $pedidoService,
 
 $tracking = new TrackingService($pdo, new \App\Core\Cache(__DIR__ . '/../../storage/cache', 120));
 $trackingCtl = new TrackingController($tracking, $pdo, __DIR__ . '/../Views');
+
 $webhooks = new WebhookController($pagoService);
 $pagosCtl = new PagoController($pagoService, $pasarela, $pdo, __DIR__ . '/../Views');
 
@@ -241,6 +252,16 @@ $router->post('/tracking/posicion', [$trackingCtl, 'posicion'], [...$soloReparti
 // --- Seguimiento -----------------------------------------------------------
 $router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}/tracking', [$trackingCtl, 'json'], [$seguridad, new AuthRequired()]);
 $router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}/seguimiento', [$trackingCtl, 'mapa'], [$seguridad, new AuthRequired()]);
+
+// --- Favoritos y programados ----------------------------------------------
+$router->get('/favoritos', [$favoritosCtl, 'index'], $soloComercio);
+$router->post('/favoritos/agregar', [$favoritosCtl, 'agregar'], [...$soloComercio, new CsrfProtect()]);
+$router->post('/favoritos/quitar', [$favoritosCtl, 'quitar'], [...$soloComercio, new CsrfProtect()]);
+$router->post('/favoritos/recompra/{uuid:[0-9a-fA-F-]{36}}', [$favoritosCtl, 'recompra'], [...$soloComercio, new CsrfProtect()]);
+
+$router->get('/programados', [$programadosCtl, 'index'], $soloComercio);
+$router->post('/programados', [$programadosCtl, 'crear'], [...$soloComercio, new CsrfProtect()]);
+$router->post('/programados/{id:\d+}/{estado:activa|pausada|cancelada}', [$programadosCtl, 'estado'], [...$soloComercio, new CsrfProtect()]);
 $router->get('/pago/simulado/{referencia}', [$pagosCtl, 'mostrar'], [$seguridad, new AuthRequired()]);
 $router->post('/pago/simulado/{referencia}', [$pagosCtl, 'confirmar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 

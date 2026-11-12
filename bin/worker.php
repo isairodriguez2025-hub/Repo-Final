@@ -16,15 +16,19 @@ use App\Config\Database;
 use App\Modules\Jobs\Worker;
 use App\Modules\Notificaciones\NotificacionService;
 use App\Modules\Pedidos\PedidoService;
+use App\Modules\Programados\ProgramadoService;
 
 Dotenv\Dotenv::createImmutable(__DIR__ . '/..')->safeLoad();
 
 $pdo = Database::nuevaConexion();
 
+$notificaciones = new NotificacionService($pdo, __DIR__ . '/../storage/correos');
+
 $worker = new Worker(
     $pdo,
-    new PedidoService($pdo),
-    new NotificacionService($pdo, __DIR__ . '/../storage/correos'),
+    new PedidoService($pdo, $notificaciones),
+    $notificaciones,
+    new ProgramadoService($pdo, new \App\Modules\Catalogo\PrecioService(), $notificaciones),
 );
 
 $inicio = microtime(true);

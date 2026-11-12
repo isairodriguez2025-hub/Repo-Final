@@ -18,6 +18,8 @@ if ($usuario !== null) {
     if ($rol === 'comercio') {
         $enlaces[] = ['/carrito', 'Carrito'];
         $enlaces[] = ['/pedidos', 'Mis pedidos'];
+        $enlaces[] = ['/favoritos', 'Favoritos'];
+        $enlaces[] = ['/programados', 'Programados'];
     }
 
     if ($rol === 'mayorista') {

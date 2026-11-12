@@ -23,6 +23,7 @@ final class Worker
         private readonly PDO $pdo,
         private readonly PedidoService $pedidos,
         private readonly NotificacionService $notificaciones,
+        private readonly ?\App\Modules\Programados\ProgramadoService $programados = null,
     ) {
     }
 
@@ -38,6 +39,7 @@ final class Worker
         foreach ([
             'reservas_vencidas'      => fn () => $this->expirarReservas(),
             'pedidos_sin_respuesta'  => fn () => $this->expirarSinRespuesta(),
+            'programados'            => fn () => $this->prepararProgramados(),
             'notificaciones'         => fn () => $this->enviarNotificaciones(),
             'jobs'                   => fn () => $this->procesarJobs(),
             'limpieza'               => fn () => $this->limpieza(),
@@ -96,6 +98,20 @@ final class Worker
         }
 
         return $expirados === 0 ? 'sin pedidos vencidos' : "{$expirados} pedido(s) expirados";
+    }
+
+    /** RN-12: prepara borradores de pedidos programados 24 h antes. */
+    private function prepararProgramados(): string
+    {
+        if ($this->programados === null) {
+            return 'sin servicio de programados';
+        }
+
+        $r = $this->programados->generarBorradores();
+
+        return $r['borradores'] === 0 && $r['omitidos'] === 0
+            ? 'sin plantillas por preparar'
+            : "{$r['borradores']} borrador(es), {$r['omitidos']} omitido(s)";
     }
 
     private function enviarNotificaciones(): string

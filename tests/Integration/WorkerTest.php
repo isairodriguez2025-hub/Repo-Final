@@ -140,9 +140,10 @@ final class WorkerTest extends TestCase
 
         $tareas = $this->pdo->query('SELECT tarea FROM ejecuciones_worker ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
 
-        $this->assertCount(5, $tareas);
+        $this->assertCount(6, $tareas);
         $this->assertContains('reservas_vencidas', $tareas);
         $this->assertContains('notificaciones', $tareas);
+        $this->assertContains('programados', $tareas);
     }
 
     public function test_encola_y_entrega_una_notificacion(): void
