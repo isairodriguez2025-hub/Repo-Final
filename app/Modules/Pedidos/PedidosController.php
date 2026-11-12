@@ -28,6 +28,8 @@ final class PedidosController
         private readonly PDO $pdo,
         private readonly string $directorioVistas,
         private readonly ?\App\Modules\Pagos\PagoService $pagos = null,
+        private readonly ?\App\Modules\Logistica\AsignacionService $asignacion = null,
+        private readonly ?\App\Modules\Logistica\PruebaEntregaService $pruebas = null,
     ) {
     }
 
@@ -230,6 +232,23 @@ final class PedidosController
             $this->roles(),
             $peticion->input('motivo') !== null ? (string) $peticion->input('motivo') : null,
         );
+
+        // Efectos secundarios de la transición.
+        if ($resultado['ok']) {
+            $nuevo = self::ACCIONES[$accion];
+
+            if ($nuevo === 'listo_para_recoger' && $this->pruebas !== null) {
+                $this->pruebas->generarRecoleccion((int) $pedido['id']);
+            }
+
+            if ($nuevo === 'buscando_repartidor' && $this->asignacion !== null) {
+                $this->asignacion->lanzarRonda((int) $pedido['id'], 1);
+            }
+
+            if ($nuevo === 'en_puerta' && $this->pruebas !== null) {
+                $this->pruebas->generarEntrega((int) $pedido['id']);
+            }
+        }
 
         $volver = $this->mayoristaId() === (int) $pedido['mayorista_id'] ? '/mayorista/pedidos' : '/pedidos/' . $uuid;
 

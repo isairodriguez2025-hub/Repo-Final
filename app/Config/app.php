@@ -46,6 +46,10 @@ use App\Modules\Jobs\TickController;
 use App\Modules\Jobs\Worker;
 use App\Modules\Notificaciones\NotificacionController;
 use App\Modules\Notificaciones\NotificacionService;
+use App\Modules\Logistica\AsignacionService;
+use App\Modules\Logistica\PruebaEntregaService;
+use App\Modules\Logistica\RepartidorController;
+use App\Modules\Logistica\TarifaService;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -183,7 +187,13 @@ $configPagos = require __DIR__ . '/pagos.php';
 $pasarela = new SimuladoGateway($configPagos['webhook_secret'], 300);
 $pagoService = new PagoService($pdo, $pedidoService, $pasarela, $auditoria, $configPagos);
 
-$pedidos = new PedidosController($pedidoService, $pdo, __DIR__ . '/../Views', $pagoService);
+$tarifas = new TarifaService($pdo);
+$asignacion = new AsignacionService($pdo, $tarifas, $pedidoService);
+$pruebas = new PruebaEntregaService($pdo);
+
+$pedidos = new PedidosController($pedidoService, $pdo, __DIR__ . '/../Views', $pagoService, $asignacion, $pruebas);
+
+$repartidorCtl = new RepartidorController($asignacion, $pruebas, $pedidoService, $pdo, __DIR__ . '/../Views');
 $webhooks = new WebhookController($pagoService);
 $pagosCtl = new PagoController($pagoService, $pasarela, $pdo, __DIR__ . '/../Views');
 
@@ -212,6 +222,15 @@ $router->get('/internal/tick', [$tick, 'tick'], [$seguridad]);
 
 $avisosCtl = new NotificacionController($notificaciones, __DIR__ . '/../Views');
 $router->get('/notificaciones', [$avisosCtl, 'index'], [$seguridad, new AuthRequired()]);
+
+// --- Repartidor ------------------------------------------------------------
+$soloRepartidor = [$seguridad, new AuthRequired(), new RoleRequired(['repartidor'])];
+
+$router->get('/repartidor', [$repartidorCtl, 'panel'], $soloRepartidor);
+$router->post('/repartidor/disponibilidad', [$repartidorCtl, 'disponibilidad'], [...$soloRepartidor, new CsrfProtect()]);
+$router->post('/repartidor/ofertas/{id:\d+}/aceptar', [$repartidorCtl, 'aceptar'], [...$soloRepartidor, new CsrfProtect()]);
+$router->post('/repartidor/pedidos/{uuid:[0-9a-fA-F-]{36}}/recolectar', [$repartidorCtl, 'recolectar'], [...$soloRepartidor, new CsrfProtect()]);
+$router->post('/repartidor/pedidos/{uuid:[0-9a-fA-F-]{36}}/entregar', [$repartidorCtl, 'entregar'], [...$soloRepartidor, new CsrfProtect()]);
 $router->get('/pago/simulado/{referencia}', [$pagosCtl, 'mostrar'], [$seguridad, new AuthRequired()]);
 $router->post('/pago/simulado/{referencia}', [$pagosCtl, 'confirmar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 
@@ -244,9 +263,6 @@ $router->get('/mayorista', static fn (): Response => Response::redirect('/mayori
 
 $router->get('/admin', static fn (): Response => Response::redirect('/admin/kyc'),
     [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc'])]);
-
-$router->get('/repartidor', static fn (): Response => Response::redirect('/perfil'),
-    [$seguridad, new AuthRequired(), new RoleRequired(['repartidor'])]);
 
 $contenedor = new Container();
 $contenedor->set(Logger::class, $logger);
