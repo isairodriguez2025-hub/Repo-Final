@@ -113,6 +113,9 @@ foreach ($enlaces as [$href, $texto]) {
             margin: 0 auto;
             padding: 40px 24px 72px;
         }
+        /* Pantallas que necesitan todo el ancho (buscador con mapa). */
+        .ancho-completo .barra__interior { max-width: 100%; padding: 0 24px; }
+        .ancho-completo main { max-width: 100%; padding: 24px 24px 48px; }
         h1 {
             font-size: 26px;
             letter-spacing: -.02em;
@@ -229,7 +232,7 @@ foreach ($enlaces as [$href, $texto]) {
         }
     </style>
 </head>
-<body>
+<body class="<?= !empty($anchoCompleto) ? 'ancho-completo' : '' ?>">
 <header class="barra">
     <div class="barra__interior">
         <a class="marca" href="<?= $usuario !== null ? '/perfil' : '/login' ?>">Didi2 <span>· B2B</span></a>

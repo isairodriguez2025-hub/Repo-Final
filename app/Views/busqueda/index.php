@@ -95,6 +95,7 @@ $json = json_encode(array_map(static fn (array $r): array => [
 ], $resultados), JSON_UNESCAPED_UNICODE) ?: '[]';
 
 $mapa = true;
+$anchoCompleto = true;
 
 $contenido = '<h1>Buscar productos</h1>'
     . '<p>' . (int) $total . ' producto' . ($total === 1 ? '' : 's') . ' cerca de ti.</p>'
@@ -122,7 +123,7 @@ $contenido = '<h1>Buscar productos</h1>'
 
 $estilos = <<<'CSS'
 .filtros {
-    display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:20px 0;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:20px 0; width:100%;
     background:#fff; border:1px solid #E5E7EB; border-radius:14px; padding:12px;
 }
 .filtros input,
@@ -150,14 +151,14 @@ $estilos = <<<'CSS'
 .filtros button:active { transform:translateY(1px); }
 
 /* Dos columnas solo en computadora */
-.buscador { display:grid; grid-template-columns:1fr; gap:18px; align-items:start; }
+.buscador { display:grid; grid-template-columns:1fr; gap:18px; align-items:start; width:100%; }
 .buscador__mapa { position:relative; }
 .mapa {
     height:340px; width:100%; border-radius:14px; overflow:hidden;
     box-shadow:0 4px 18px rgba(17,24,39,.07); border:1px solid #E5E7EB; z-index:1;
 }
 @media (min-width:992px) {
-    .buscador { grid-template-columns:1.1fr 1fr; gap:22px; }
+    .buscador { grid-template-columns: 2fr 1fr; gap:22px; }
     .buscador__mapa { position:sticky; top:76px; }
     .mapa { height:calc(100vh - 150px); min-height:520px; }
     .buscador__resultados {
@@ -168,7 +169,7 @@ $estilos = <<<'CSS'
     .buscador__resultados::-webkit-scrollbar-thumb { background:#d9d7d0; border-radius:8px; }
     .buscador__resultados::-webkit-scrollbar-track { background:transparent; }
 }
-.fichas { display:grid; grid-template-columns:1fr; gap:12px; max-width:820px; }
+.fichas { display:grid; grid-template-columns:1fr; gap:12px; width:100%; }
 .ficha {
     display:flex; justify-content:space-between; align-items:flex-start; gap:24px;
     background:#fff; border:1px solid #E5E7EB; border-radius:12px; padding:16px 20px;
