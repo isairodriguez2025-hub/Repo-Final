@@ -48,6 +48,13 @@ $directorioRate = __DIR__ . '/../../storage/rate';
 // --- Rutas públicas --------------------------------------------------------
 $router->get('/health', new HealthController(), [$seguridad]);
 
+// La raíz no es una pantalla: manda a donde corresponde según la sesión.
+$router->get('/', static function (\App\Core\Request $peticion): \App\Core\Response {
+    return \App\Core\Response::redirect(
+        \App\Core\Session::obtener('user_id', null) !== null ? '/perfil' : '/login'
+    );
+}, [$seguridad]);
+
 // Página de ejemplo: demuestra el escape y el nonce de la CSP.
 $router->get('/demo', static function (Request $peticion, array $args) use ($seguridad): Response {
     $nonce = base64_encode(random_bytes(16));

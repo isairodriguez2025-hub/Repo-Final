@@ -91,9 +91,12 @@ final class Response
             'X-Frame-Options'         => 'DENY',
             'Referrer-Policy'         => 'strict-origin-when-cross-origin',
             'Permissions-Policy'      => 'geolocation=(self)',
+            // El nonce va también en style-src: sin él, el <style> de la plantilla
+            // se bloquea y la página sale sin diseño. style-src-attr permite los
+            // atributos style="…" de las vistas, que no pueden ejecutar código.
             'Content-Security-Policy' => $this->nonce === null
-                ? "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'"
-                : "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' 'nonce-{$this->nonce}'; frame-ancestors 'none'",
+                ? "default-src 'self'; img-src 'self' data:; style-src 'self'; style-src-attr 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"
+                : "default-src 'self'; img-src 'self' data:; style-src 'self' 'nonce-{$this->nonce}'; style-src-attr 'unsafe-inline'; script-src 'self' 'nonce-{$this->nonce}'; frame-ancestors 'none'",
         ];
 
         // HSTS solo tiene sentido sobre HTTPS.
