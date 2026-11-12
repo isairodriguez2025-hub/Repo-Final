@@ -1,10 +1,22 @@
+# Dependencias
 /vendor/
-/.env
-/storage/logs/*.log
-/storage/kyc/*
-/storage/uploads/*
-!/storage/logs/.gitkeep
-!/storage/kyc/.gitkeep
-!/storage/uploads/.gitkeep
-.phpunit.result.cache
+
+# Entorno y secretos
+.env
+.env.*
+
+# Almacenamiento en tiempo de ejecución
+/storage/logs/
+/storage/sessions/
+/storage/cache/
+/storage/rate/
+/storage/kyc/
+/storage/*.log
+
+# Base de datos local
+*.sqlite
+*.db
+
+# Sistema
 .DS_Store
+Thumbs.db
