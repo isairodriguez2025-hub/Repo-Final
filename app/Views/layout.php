@@ -13,6 +13,7 @@ $rol = is_array($roles) && $roles !== [] ? (string) $roles[0] : null;
 
 $enlaces = [];
 if ($usuario !== null) {
+    $enlaces[] = ['/buscar', 'Buscar'];
     $enlaces[] = ['/perfil', 'Mi perfil'];
     if ($rol === 'mayorista') {
         $enlaces[] = ['/mayorista/productos', 'Mis productos'];
