@@ -33,6 +33,18 @@ final class Session
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
 
+        // Las sesiones van a storage/sessions, no al /tmp del sistema: /tmp es
+        // volátil y al reiniciar el contenedor se pierden todas, lo que hacía
+        // que el token CSRF dejara de coincidir y todo POST devolviera 403.
+        $rutaSesiones = dirname(__DIR__, 2) . '/storage/sessions';
+
+        if (is_dir($rutaSesiones) && is_writable($rutaSesiones)) {
+            session_save_path($rutaSesiones);
+        }
+
+        // El recolector no debe borrar sesiones antes que la regla de inactividad.
+        ini_set('session.gc_maxlifetime', (string) (self::INACTIVIDAD_SEG + 300));
+
         // El prefijo __Host- obliga a Secure: en HTTP local el navegador
         // descarta la cookie y la sesión nunca arranca. Se usa solo con HTTPS.
         session_name($seguro ? '__Host-didi2' : 'didi2_sess');

@@ -17,16 +17,30 @@ use App\Core\Response;
  */
 final class RateLimit implements Middleware
 {
+    /**
+     * @param string|null $campo Campo del formulario que se suma a la clave.
+     *        En el login se usa el correo: así dos personas detrás del mismo
+     *        túnel o NAT no se bloquean entre sí, y el límite por cuenta lo
+     *        sigue aplicando AuthService.
+     */
     public function __construct(
         private readonly int $maximo,
         private readonly int $ventanaSegundos,
         private readonly string $directorio,
+        private readonly ?string $campo = null,
     ) {
     }
 
     public function handle(Request $peticion, callable $siguiente): Response
     {
-        $clave = hash('sha256', $peticion->ip() . '|' . $peticion->path());
+        $sufijo = '';
+
+        if ($this->campo !== null) {
+            $valor = $peticion->input($this->campo, '');
+            $sufijo = '|' . mb_strtolower(trim((string) $valor));
+        }
+
+        $clave = hash('sha256', $peticion->ip() . '|' . $peticion->path() . $sufijo);
         $archivo = rtrim($this->directorio, '/') . '/' . $clave . '.json';
 
         if (!is_dir($this->directorio)) {
@@ -48,6 +62,12 @@ final class RateLimit implements Middleware
 
         if (count($marcas) >= $this->maximo) {
             $espera = $this->ventanaSegundos - ($ahora - min($marcas));
+
+            // Al navegador se le devuelve al formulario con aviso; a la API, 429.
+            if (str_contains((string) $peticion->header('Accept'), 'text/html')) {
+                return Response::redirect($peticion->path() . '?bloqueado=1')
+                    ->withHeader('Retry-After', (string) max(1, $espera));
+            }
 
             return Response::json([
                 'ok'    => false,

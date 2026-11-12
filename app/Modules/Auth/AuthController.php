@@ -91,7 +91,13 @@ final class AuthController
     {
         Session::iniciar();
 
-        return $this->vista('auth/login', ['titulo' => 'Iniciar sesión', 'error' => null, 'email' => '']);
+        $error = match (true) {
+            $peticion->query('expirado') !== null  => 'Tu sesión expiró por inactividad. Vuelve a escribir tus datos.',
+            $peticion->query('bloqueado') !== null => 'Demasiados intentos con esta cuenta. Espera unos minutos.',
+            default                                => null,
+        };
+
+        return $this->vista('auth/login', ['titulo' => 'Iniciar sesión', 'error' => $error, 'email' => '']);
     }
 
     public function login(Request $peticion): Response

@@ -29,6 +29,17 @@ final class CsrfProtect implements Middleware
         $enviado = $peticion->header('X-CSRF-Token') ?? $peticion->input('_csrf');
 
         if (!Csrf::valido(is_string($enviado) ? $enviado : null)) {
+            // Un formulario del navegador no debe recibir JSON: se le devuelve
+            // al formulario con un aviso claro. Las llamadas de API sí reciben
+            // el 403 con su código.
+            $aceptaHtml = str_contains((string) $peticion->header('Accept'), 'text/html');
+
+            if ($aceptaHtml) {
+                $destino = $peticion->path() === '/login' ? '/login' : '/login';
+
+                return Response::redirect($destino . '?expirado=1');
+            }
+
             return Response::json([
                 'ok'    => false,
                 'error' => ['code' => 'CSRF_INVALIDO', 'message' => 'La sesión expiró. Recarga la página e inténtalo de nuevo.'],

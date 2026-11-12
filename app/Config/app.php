@@ -112,7 +112,12 @@ $catalogo = new CatalogoController(
 );
 
 $router->get('/login', [$auth, 'loginForm'], [$seguridad]);
-$router->post('/login', [$auth, 'login'], [$seguridad, new CsrfProtect(), new RateLimit(5, 900, $directorioRate)]);
+$router->post('/login', [$auth, 'login'], [
+    $seguridad,
+    new CsrfProtect(),
+    new RateLimit(5, 900, $directorioRate, 'email'),  // por cuenta
+    new RateLimit(40, 900, $directorioRate),          // respaldo por IP
+]);
 $router->get('/registro', [$auth, 'registroForm'], [$seguridad]);
 $router->post('/registro', [$auth, 'registro'], [$seguridad, new CsrfProtect(), new RateLimit(10, 3600, $directorioRate)]);
 $router->post('/logout', [$auth, 'logout'], [$seguridad, new CsrfProtect()]);
