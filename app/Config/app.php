@@ -20,6 +20,10 @@ use App\Core\AuditLogger;
 use App\Modules\Auth\AuthController;
 use App\Modules\Auth\AuthService;
 use App\Modules\Auth\UsuarioRepository;
+use App\Modules\Kyc\KycRepository;
+use App\Modules\Kyc\KycService;
+use App\Modules\Perfil\PerfilController;
+use App\Modules\Perfil\PerfilRepository;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -69,10 +73,21 @@ $router->get('/api/limitado', static fn (): Response => Response::json(['ok' => 
 // --- Autenticación ---------------------------------------------------------
 $pdo = Database::conexion();
 $auditoria = new AuditLogger($pdo);
+$perfiles = new PerfilRepository($pdo);
 $auth = new AuthController(
     new AuthService(new UsuarioRepository($pdo), $auditoria),
     __DIR__ . '/../Views',
+    $perfiles,
 );
+
+$kyc = new KycService(
+    new KycRepository($pdo),
+    $auditoria,
+    $pdo,
+    __DIR__ . '/../../storage/kyc',
+);
+
+$perfil = new PerfilController($perfiles, $kyc, __DIR__ . '/../Views');
 
 $router->get('/login', [$auth, 'loginForm'], [$seguridad]);
 $router->post('/login', [$auth, 'login'], [$seguridad, new CsrfProtect(), new RateLimit(5, 900, $directorioRate)]);
@@ -84,6 +99,16 @@ $router->get('/recuperar', [$auth, 'recuperarForm'], [$seguridad]);
 $router->post('/recuperar', [$auth, 'recuperar'], [$seguridad, new CsrfProtect(), new RateLimit(3, 3600, $directorioRate)]);
 $router->get('/restablecer', [$auth, 'restablecerForm'], [$seguridad]);
 $router->post('/restablecer', [$auth, 'restablecer'], [$seguridad, new CsrfProtect()]);
+
+// --- Perfil, direcciones y KYC ---------------------------------------------
+$router->get('/perfil', [$perfil, 'perfil'], [$seguridad, new AuthRequired()]);
+$router->post('/perfil/direccion', [$perfil, 'guardarDireccion'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
+$router->get('/kyc', [$perfil, 'kycForm'], [$seguridad, new AuthRequired()]);
+$router->post('/kyc', [$perfil, 'subirKyc'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
+
+$router->get('/admin/kyc', [$perfil, 'colaKyc'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc'])]);
+$router->post('/admin/kyc/{id:\d+}/aprobar', [$perfil, 'aprobarKyc'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc']), new CsrfProtect()]);
+$router->post('/admin/kyc/{id:\d+}/rechazar', [$perfil, 'rechazarKyc'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc']), new CsrfProtect()]);
 
 // Panel de ejemplo protegido por rol.
 $router->get('/comercio', static fn (): Response => Response::html(

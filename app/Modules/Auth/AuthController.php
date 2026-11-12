@@ -19,6 +19,7 @@ final class AuthController
     public function __construct(
         private readonly AuthService $servicio,
         private readonly string $directorioVistas,
+        private readonly ?\App\Modules\Perfil\PerfilRepository $perfiles = null,
     ) {
     }
 
@@ -62,6 +63,15 @@ final class AuthController
                 'errores' => $resultado['errores'],
                 'valores' => $datos,
             ], 422);
+        }
+
+        // El perfil del rol se crea junto con la cuenta.
+        if ($resultado['usuario_id'] !== null && $this->perfiles !== null) {
+            $this->perfiles->asegurarPerfil(
+                (int) $resultado['usuario_id'],
+                (string) $datos['rol'],
+                (string) $datos['nombre_negocio'],
+            );
         }
 
         // En producción el token viaja por correo. En local se muestra para
