@@ -13,6 +13,9 @@ final class Response
     /** @var array<string, string> */
     private array $headers = [];
 
+    /** Nonce para la política CSP: se genera por petición en el middleware. */
+    private ?string $nonce = null;
+
     public function __construct(
         private string $body = '',
         private int $status = 200,
@@ -41,6 +44,18 @@ final class Response
         $r->headers['Location'] = $url;
 
         return $r;
+    }
+
+    public function withNonce(string $nonce): self
+    {
+        $this->nonce = $nonce;
+
+        return $this;
+    }
+
+    public function nonce(): ?string
+    {
+        return $this->nonce;
     }
 
     public function withHeader(string $name, string $value): self
@@ -76,7 +91,9 @@ final class Response
             'X-Frame-Options'         => 'DENY',
             'Referrer-Policy'         => 'strict-origin-when-cross-origin',
             'Permissions-Policy'      => 'geolocation=(self)',
-            'Content-Security-Policy' => "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'",
+            'Content-Security-Policy' => $this->nonce === null
+                ? "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'"
+                : "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self' 'nonce-{$this->nonce}'; frame-ancestors 'none'",
         ];
 
         // HSTS solo tiene sentido sobre HTTPS.

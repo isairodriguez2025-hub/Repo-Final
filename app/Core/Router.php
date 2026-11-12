@@ -23,24 +23,45 @@ final class Router
         $this->colector = new RouteCollector(new RouteParser(), new DataGenerator());
     }
 
-    public function get(string $patron, callable $manejador): void
+    public function get(string $patron, callable $manejador, array $middleware = []): void
     {
-        $this->colector->addRoute('GET', $patron, $manejador);
+        $this->colector->addRoute('GET', $patron, $this->encadenar($manejador, $middleware));
     }
 
-    public function post(string $patron, callable $manejador): void
+    public function post(string $patron, callable $manejador, array $middleware = []): void
     {
-        $this->colector->addRoute('POST', $patron, $manejador);
+        $this->colector->addRoute('POST', $patron, $this->encadenar($manejador, $middleware));
     }
 
-    public function put(string $patron, callable $manejador): void
+    public function put(string $patron, callable $manejador, array $middleware = []): void
     {
-        $this->colector->addRoute('PUT', $patron, $manejador);
+        $this->colector->addRoute('PUT', $patron, $this->encadenar($manejador, $middleware));
     }
 
-    public function delete(string $patron, callable $manejador): void
+    public function delete(string $patron, callable $manejador, array $middleware = []): void
     {
-        $this->colector->addRoute('DELETE', $patron, $manejador);
+        $this->colector->addRoute('DELETE', $patron, $this->encadenar($manejador, $middleware));
+    }
+
+    /**
+     * Envuelve el controlador en la cadena de middleware, en el orden en que se
+     * declaran: el primero de la lista es el primero en ejecutarse.
+     *
+     * @param Middleware[] $middleware
+     */
+    private function encadenar(callable $manejador, array $middleware): callable
+    {
+        return function (Request $peticion, array $argumentos) use ($manejador, $middleware): Response {
+            $nucleo = static fn (Request $r): Response => $manejador($r, $argumentos);
+
+            $siguiente = $nucleo;
+            foreach (array_reverse($middleware) as $mw) {
+                $anterior  = $siguiente;
+                $siguiente = static fn (Request $r): Response => $mw->handle($r, $anterior);
+            }
+
+            return $siguiente($peticion);
+        };
     }
 
     public function dispatch(Request $peticion): Response

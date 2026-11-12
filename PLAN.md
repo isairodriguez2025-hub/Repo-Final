@@ -75,6 +75,6 @@ Por cada bloque:
 
 | Bloque | Estado | Nota |
 |---|---|---|
-| 00 | en curso | entorno portable listo; falta el código del bloque |
-| 01 | pendiente | |
+| 00 | **completado** | `/health` responde `ok`, cabeceras de seguridad, usuario de app sin DDL, migraciones funcionando |
+| 01 | en curso | núcleo ya escrito; falta endurecerlo y sus pruebas |
 | 02 | pendiente | |
