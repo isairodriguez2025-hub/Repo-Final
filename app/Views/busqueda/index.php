@@ -31,25 +31,39 @@ $puedeComprar = \App\Core\Session::obtener('user_id', null) !== null
 
 $fichas = '';
 foreach ($resultados as $i => $r) {
+    $dist = number_format((float) $r['distancia_km'], 1);
+    $stock = (int) $r['stock_disponible'];
+    $minimo = (int) $r['cantidad_minima'];
+    $paso = max(1, (int) $r['multiplo_venta']);
+
     $fichas .= '<article class="ficha" data-i="' . $i . '" data-lat="' . $e((string) $r['mayorista']['latitud']) . '" data-lng="' . $e((string) $r['mayorista']['longitud']) . '">'
-        . '<div class="ficha__cab"><h3>' . $e($r['nombre']) . '</h3>'
-        . '<span class="ficha__dist">' . number_format((float) $r['distancia_km'], 1) . ' km</span></div>'
-        . '<p class="ficha__mayo">' . $e($r['mayorista']['nombre']) . ' · ' . $e($r['categoria']) . '</p>'
+        . '<div class="ficha__izq">'
+        . '<h3>' . $e($r['nombre']) . '</h3>'
+        . '<p class="ficha__prov">' . $e($r['mayorista']['nombre'])
+        . ' <span class="badge">' . $e($r['categoria']) . '</span>'
+        . '<a class="ficha__ver" href="/mayoristas/' . $e($r['mayorista']['uuid']) . '">Ver mayorista</a></p>'
         . '<div class="ficha__precio">$' . number_format((float) $r['precio_base'], 2)
-        . ' <span>+ IVA · ' . $e($r['unidad_venta']) . ' de ' . $e($r['contenido']) . '</span></div>'
-        . '<div class="ficha__pie">'
-        . '<span>' . (int) $r['stock_disponible'] . ' disponibles</span>'
-        . '<a href="/mayoristas/' . $e($r['mayorista']['uuid']) . '">Ver mayorista</a>'
+        . '<span>+ IVA · ' . $e($r['unidad_venta']) . ' de ' . $e($r['contenido']) . '</span></div>'
         . '</div>'
-        . ($puedeComprar
-            ? '<form method="post" action="/carrito/agregar" class="ficha__agregar">'
-              . '<input type="hidden" name="_csrf" value="' . $e($csrf) . '">'
-              . '<input type="hidden" name="producto" value="' . $e($r['uuid']) . '">'
-              . '<input type="hidden" name="volver" value="/buscar">'
-              . '<input type="number" name="cantidad" value="' . (int) $r['cantidad_minima'] . '" min="' . (int) $r['cantidad_minima'] . '" step="' . (int) $r['multiplo_venta'] . '" max="' . (int) $r['stock_disponible'] . '">'
-              . '<button type="submit">Agregar</button></form>'
-            : '')
-        . '</article>';
+        . '<div class="ficha__der">'
+        . '<span class="ficha__dist">' . $dist . ' km</span>'
+        . '<span class="ficha__stock">' . $stock . ' disponibles</span>';
+
+    if ($puedeComprar) {
+        $fichas .= '<form method="post" action="/carrito/agregar" class="ficha__compra">'
+            . '<input type="hidden" name="_csrf" value="' . $e($csrf) . '">'
+            . '<input type="hidden" name="producto" value="' . $e($r['uuid']) . '">'
+            . '<input type="hidden" name="volver" value="/buscar">'
+            . '<div class="stepper">'
+            . '<button type="button" class="stepper__menos" aria-label="Quitar uno">&minus;</button>'
+            . '<input type="number" name="cantidad" value="' . $minimo . '" min="' . $minimo . '" step="' . $paso . '" max="' . $stock . '" aria-label="Cantidad">'
+            . '<button type="button" class="stepper__mas" aria-label="Agregar uno">+</button>'
+            . '</div>'
+            . '<button type="submit" class="btn-agregar">Agregar</button>'
+            . '</form>';
+    }
+
+    $fichas .= '</div></article>';
 }
 
 if ($fichas === '') {
@@ -108,22 +122,53 @@ $estilos = <<<'CSS'
 .filtros { display:flex; gap:10px; flex-wrap:wrap; margin:20px 0; align-items:center; }
 .filtros input, .filtros select { height:42px; }
 .mapa { height:380px; border-radius:12px; border:1px solid #e8e6df; margin-bottom:22px; z-index:1; }
-.fichas { display:grid; grid-template-columns:1fr; gap:12px; max-width:760px; }
-.ficha { background:#fff; border:1px solid #e8e6df; border-radius:12px; padding:16px; cursor:pointer;
-         transition:border-color .15s, box-shadow .15s; }
-.ficha:hover { border-color:#c9d6cd; }
-.ficha.activa { border-color:#1f4d3a; box-shadow:0 0 0 3px rgba(31,77,58,.1); }
-.ficha__cab { display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
-.ficha h3 { font-size:15px; margin:0; font-weight:600; letter-spacing:-.01em; }
-.ficha__dist { font-size:12px; color:#6b7280; white-space:nowrap; }
-.ficha__mayo { font-size:13px; color:#6b7280; margin:4px 0 10px; }
-.ficha__precio { font-size:19px; font-weight:600; letter-spacing:-.02em; }
-.ficha__precio span { font-size:12px; font-weight:400; color:#9ca3af; }
-.ficha__pie { display:flex; justify-content:space-between; align-items:center; margin-top:12px;
-              font-size:13px; color:#6b7280; border-top:1px solid #f4f2ec; padding-top:10px; }
-.ficha__agregar { display:flex; gap:8px; margin-top:10px; }
-.ficha__agregar input { width:70px; height:36px; padding:0 8px; }
-.ficha__agregar button { height:36px; padding:0 14px; font-size:13px; }
+.fichas { display:grid; grid-template-columns:1fr; gap:12px; max-width:820px; }
+.ficha {
+    display:flex; justify-content:space-between; align-items:flex-start; gap:24px;
+    background:#fff; border:1px solid #E5E7EB; border-radius:12px; padding:16px 20px;
+    cursor:pointer; transition:border-color .15s, box-shadow .15s, transform .15s;
+}
+.ficha:hover { border-color:#c9d6cd; box-shadow:0 2px 10px rgba(17,24,39,.05); }
+.ficha.activa { border-color:#1f4d3a; box-shadow:0 0 0 3px rgba(31,77,58,.09); }
+.ficha__izq { flex:1; min-width:0; }
+.ficha h3 { font-size:18px; font-weight:600; letter-spacing:-.01em; margin:0 0 4px; }
+.ficha__prov { font-size:13px; color:#6b7280; margin:0 0 10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.badge {
+    font-size:11px; font-weight:500; color:#6b7280; background:#f3f4f6;
+    padding:2px 9px; border-radius:999px; letter-spacing:0; white-space:nowrap;
+}
+.ficha__precio { font-size:22px; font-weight:700; letter-spacing:-.02em; color:#111827; }
+.ficha__precio span { font-size:12px; font-weight:400; color:#9ca3af; letter-spacing:0; margin-left:6px; }
+.ficha__der { display:flex; flex-direction:column; align-items:flex-end; gap:8px; flex-shrink:0; }
+.ficha__dist { font-size:12px; color:#9ca3af; }
+.ficha__stock {
+    font-size:12px; font-weight:500; color:#1f4d3a; background:#eaf1ec;
+    padding:3px 10px; border-radius:999px; white-space:nowrap;
+}
+.ficha__compra { display:flex; align-items:center; gap:8px; margin:2px 0 0; }
+.stepper { display:flex; align-items:center; border:1px solid #E5E7EB; border-radius:8px; overflow:hidden; }
+.stepper button {
+    width:30px; height:34px; padding:0; background:#fff; border:0; color:#4b5563;
+    font-size:16px; line-height:1; cursor:pointer;
+}
+.stepper button:hover { background:#f9fafb; }
+.stepper input {
+    width:46px; height:34px; padding:0; border:0; border-left:1px solid #E5E7EB; border-right:1px solid #E5E7EB;
+    text-align:center; font-size:14px; border-radius:0;
+}
+.stepper input:focus { outline:none; box-shadow:none; }
+.stepper input::-webkit-outer-spin-button,
+.stepper input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.btn-agregar { height:34px; padding:0 16px; font-size:13px; font-weight:500; background:#1f4d3a; color:#fff;
+               border:0; border-radius:8px; cursor:pointer; white-space:nowrap; }
+.btn-agregar:hover { background:#17392b; }
+.ficha__ver { font-size:12px; color:#6b7280; text-decoration:none; border-bottom:1px solid #e5e7eb; margin-left:2px; }
+.ficha__ver:hover { color:#1f4d3a; border-bottom-color:#1f4d3a; }
+@media (max-width:560px) {
+    .ficha { flex-direction:column; gap:14px; padding:14px 16px; }
+    .ficha__der { align-items:flex-start; width:100%; }
+    .ficha__compra { width:100%; }
+}
 .paginacion { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:28px; }
 CSS;
 
@@ -158,6 +203,29 @@ function resaltar(i, centrar) {
 
 document.querySelectorAll('.ficha').forEach(f => {
     f.addEventListener('click', () => resaltar(parseInt(f.dataset.i, 10), true));
+});
+
+// Botones − y + del selector de cantidad.
+document.querySelectorAll('.stepper').forEach(st => {
+    const inp = st.querySelector('input');
+    const paso = parseInt(inp.step, 10) || 1;
+    const min = parseInt(inp.min, 10) || 1;
+    const max = parseInt(inp.max, 10) || 9999;
+
+    st.querySelector('.stepper__menos').addEventListener('click', () => {
+        const v = (parseInt(inp.value, 10) || min) - paso;
+        inp.value = Math.max(min, v);
+    });
+
+    st.querySelector('.stepper__mas').addEventListener('click', () => {
+        const v = (parseInt(inp.value, 10) || min) + paso;
+        inp.value = Math.min(max, v);
+    });
+});
+
+// El formulario de compra no debe centrar el mapa al hacer clic.
+document.querySelectorAll('.ficha__compra, .ficha__ver').forEach(el => {
+    el.addEventListener('click', e => e.stopPropagation());
 });
 
 // Los desplegables aplican el filtro al cambiar. Se hace con listeners y no
