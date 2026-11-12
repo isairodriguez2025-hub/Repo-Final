@@ -1,0 +1,10 @@
+# Todo pasa por el front controller. Los archivos reales (css, js, img) se
+# sirven directo; cualquier otra ruta la resuelve index.php.
+RewriteEngine On
+
+# Si el archivo o carpeta existe, no reescribir.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^ index.php [QSA,L]
