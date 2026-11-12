@@ -76,5 +76,5 @@ Por cada bloque:
 | Bloque | Estado | Nota |
 |---|---|---|
 | 00 | **completado** | `/health` responde `ok`, cabeceras de seguridad, usuario de app sin DDL, migraciones funcionando |
-| 01 | en curso | núcleo ya escrito; falta endurecerlo y sus pruebas |
-| 02 | pendiente | |
+| 01 | **completado** | middleware, vistas con escape, 20 pruebas en verde, base reproducible |
+| 02 | siguiente | autenticación, sesiones y control de acceso |
