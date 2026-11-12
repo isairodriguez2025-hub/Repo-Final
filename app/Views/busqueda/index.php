@@ -158,7 +158,9 @@ $estilos = <<<'CSS'
     box-shadow:0 4px 18px rgba(17,24,39,.07); border:1px solid #E5E7EB; z-index:1;
 }
 @media (min-width:992px) {
-    .buscador { grid-template-columns: 2fr 1fr; gap:22px; }
+    /* 2/3 y 1/3, pero la columna de fichas nunca baja de 360 px: en monitores
+       muy anchos el mapa se queda con el espacio sobrante. */
+    .buscador { grid-template-columns: minmax(0, 2fr) minmax(360px, 1fr); gap:22px; }
     .buscador__mapa { position:sticky; top:76px; }
     .mapa { height:calc(100vh - 150px); min-height:520px; }
     .buscador__resultados {
