@@ -61,6 +61,10 @@ foreach ($mayoristas as [$nombre, $giro, $lat, $lng, $reputacion, $minimo]) {
 
     $usuarioId = (int) $pdo->lastInsertId();
 
+    // Sin el rol en usuario_roles, RoleRequired rechaza la cuenta.
+    $pdo->prepare("INSERT INTO usuario_roles (usuario_id, rol_id) SELECT ?, id FROM roles WHERE nombre = 'mayorista'")
+        ->execute([$usuarioId]);
+
     $pdo->prepare(
         "INSERT INTO mayoristas_perfil
          (usuario_id, nombre_comercial, categoria_giro, latitud, longitud, monto_minimo,

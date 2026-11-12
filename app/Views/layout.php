@@ -14,10 +14,18 @@ $rol = is_array($roles) && $roles !== [] ? (string) $roles[0] : null;
 $enlaces = [];
 if ($usuario !== null) {
     $enlaces[] = ['/buscar', 'Buscar'];
-    $enlaces[] = ['/perfil', 'Mi perfil'];
+
+    if ($rol === 'comercio') {
+        $enlaces[] = ['/carrito', 'Carrito'];
+        $enlaces[] = ['/pedidos', 'Mis pedidos'];
+    }
+
     if ($rol === 'mayorista') {
         $enlaces[] = ['/mayorista/productos', 'Mis productos'];
+        $enlaces[] = ['/mayorista/pedidos', 'Pedidos'];
     }
+
+    $enlaces[] = ['/perfil', 'Mi perfil'];
     if (in_array($rol, ['admin_total', 'admin_kyc'], true)) {
         $enlaces[] = ['/admin/kyc', 'Verificaciones'];
     }

@@ -26,6 +26,9 @@ foreach (['distancia' => 'Más cercano', 'precio_asc' => 'Menor precio', 'precio
     $opcionesOrden .= '<option value="' . $valor . '"' . $sel . '>' . $e($texto) . '</option>';
 }
 
+$puedeComprar = \App\Core\Session::obtener('user_id', null) !== null
+    && in_array('comercio', (array) \App\Core\Session::obtener('roles', []), true);
+
 $fichas = '';
 foreach ($resultados as $i => $r) {
     $fichas .= '<article class="ficha" data-i="' . $i . '" data-lat="' . $e((string) $r['mayorista']['latitud']) . '" data-lng="' . $e((string) $r['mayorista']['longitud']) . '">'
@@ -37,7 +40,16 @@ foreach ($resultados as $i => $r) {
         . '<div class="ficha__pie">'
         . '<span>' . (int) $r['stock_disponible'] . ' disponibles</span>'
         . '<a href="/mayoristas/' . $e($r['mayorista']['uuid']) . '">Ver mayorista</a>'
-        . '</div></article>';
+        . '</div>'
+        . ($puedeComprar
+            ? '<form method="post" action="/carrito/agregar" class="ficha__agregar">'
+              . '<input type="hidden" name="_csrf" value="' . $e($csrf) . '">'
+              . '<input type="hidden" name="producto" value="' . $e($r['uuid']) . '">'
+              . '<input type="hidden" name="volver" value="/buscar">'
+              . '<input type="number" name="cantidad" value="' . (int) $r['cantidad_minima'] . '" min="' . (int) $r['cantidad_minima'] . '" step="' . (int) $r['multiplo_venta'] . '" max="' . (int) $r['stock_disponible'] . '">'
+              . '<button type="submit">Agregar</button></form>'
+            : '')
+        . '</article>';
 }
 
 if ($fichas === '') {
@@ -109,6 +121,9 @@ $estilos = <<<'CSS'
 .ficha__precio span { font-size:12px; font-weight:400; color:#9ca3af; }
 .ficha__pie { display:flex; justify-content:space-between; align-items:center; margin-top:12px;
               font-size:13px; color:#6b7280; border-top:1px solid #f4f2ec; padding-top:10px; }
+.ficha__agregar { display:flex; gap:8px; margin-top:10px; }
+.ficha__agregar input { width:70px; height:36px; padding:0 8px; }
+.ficha__agregar button { height:36px; padding:0 14px; font-size:13px; }
 .paginacion { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:28px; }
 CSS;
 

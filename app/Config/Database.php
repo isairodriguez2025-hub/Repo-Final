@@ -19,6 +19,20 @@ final class Database
 {
     private static ?PDO $conexion = null;
 
+    /**
+     * Conexión nueva, sin reutilizar la del proceso.
+     *
+     * Necesaria al bifurcar procesos (pcntl_fork): el hijo hereda el socket
+     * del padre y, si lo usa, ambos escriben sobre la misma conexión y el
+     * servidor la corta con "Server has gone away".
+     */
+    public static function nuevaConexion(): PDO
+    {
+        self::$conexion = null;
+
+        return self::conexion();
+    }
+
     public static function conexion(bool $usarMigrador = false): PDO
     {
         if (self::$conexion !== null && !$usarMigrador) {

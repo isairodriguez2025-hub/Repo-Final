@@ -32,6 +32,12 @@ use App\Modules\Busqueda\BusquedaController;
 use App\Modules\Busqueda\BusquedaRepository;
 use App\Modules\Busqueda\BusquedaService;
 use App\Modules\Sistema\StaticController;
+use App\Modules\Carrito\CarritoController;
+use App\Modules\Carrito\CarritoRepository;
+use App\Modules\Carrito\CarritoService;
+use App\Modules\Pedidos\CheckoutService;
+use App\Modules\Pedidos\PedidoService;
+use App\Modules\Pedidos\PedidosController;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -148,6 +154,38 @@ $router->post('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}', [$catalogo, 'actua
 $router->post('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/stock', [$catalogo, 'ajustarStock'], [...$soloMayorista, new CsrfProtect()]);
 $router->post('/mayorista/productos/csv', [$catalogo, 'importarCsv'], [...$soloMayorista, new CsrfProtect()]);
 $router->get('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/escalas-preview', [$catalogo, 'escalasPreview'], $soloMayorista);
+
+// --- Carrito y pedidos -----------------------------------------------------
+$pedidoService = new PedidoService($pdo);
+$carritoService = new CarritoService(new CarritoRepository($pdo), new \App\Modules\Catalogo\PrecioService());
+
+$carrito = new CarritoController(
+    $carritoService,
+    new CheckoutService($pdo, $carritoService, $pedidoService, $auditoria),
+    $perfiles,
+    $pdo,
+    __DIR__ . '/../Views',
+);
+
+$pedidos = new PedidosController($pedidoService, $pdo, __DIR__ . '/../Views');
+
+$soloComercio = [$seguridad, new AuthRequired(), new RoleRequired(['comercio'])];
+
+$router->get('/carrito', [$carrito, 'ver'], $soloComercio);
+$router->post('/carrito/agregar', [$carrito, 'agregar'], [...$soloComercio, new CsrfProtect()]);
+$router->post('/carrito/quitar', [$carrito, 'quitar'], [...$soloComercio, new CsrfProtect()]);
+$router->post('/carrito/vaciar', [$carrito, 'vaciar'], [...$soloComercio, new CsrfProtect()]);
+$router->get('/checkout', [$carrito, 'checkoutForm'], $soloComercio);
+$router->post('/checkout', [$carrito, 'checkout'], [...$soloComercio, new CsrfProtect()]);
+
+$router->get('/pedidos', [$pedidos, 'misPedidos'], $soloComercio);
+$router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}', [$pedidos, 'detalle'], [$seguridad, new AuthRequired()]);
+$router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}/surtido', [$pedidos, 'surtido'], [$seguridad, new AuthRequired()]);
+$router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/pagar', [$pedidos, 'pagar'], [...$soloComercio, new CsrfProtect()]);
+$router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/{accion:aceptar|rechazar|preparando|listo|buscar-reparto|cancelar}',
+    [$pedidos, 'accion'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
+
+$router->get('/mayorista/pedidos', [$pedidos, 'bandeja'], [$seguridad, new AuthRequired(), new RoleRequired(['mayorista'])]);
 
 // --- Búsqueda geográfica ---------------------------------------------------
 $busqueda = new BusquedaController(
