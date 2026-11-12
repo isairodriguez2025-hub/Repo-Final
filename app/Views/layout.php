@@ -25,6 +25,7 @@ if ($usuario !== null) {
         $enlaces[] = ['/mayorista/pedidos', 'Pedidos'];
     }
 
+    $enlaces[] = ['/notificaciones', 'Avisos'];
     $enlaces[] = ['/perfil', 'Mi perfil'];
     if (in_array($rol, ['admin_total', 'admin_kyc'], true)) {
         $enlaces[] = ['/admin/kyc', 'Verificaciones'];

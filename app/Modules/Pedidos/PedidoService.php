@@ -85,8 +85,28 @@ final class PedidoService
     /** Estados en los que el stock deja de estar reservado y vuelve al catálogo. */
     private const LIBERAN_STOCK = ['cancelado', 'rechazado', 'expirado', 'reembolsado'];
 
-    public function __construct(private readonly PDO $pdo)
-    {
+    /** Avisos por estado. La clave es el estado nuevo. */
+    private const AVISOS = [
+        'pendiente_aceptacion' => ['destino' => 'mayorista', 'tipo' => 'pedido_nuevo',
+            'asunto' => 'Tienes un pedido por aceptar', 'texto' => 'Revisa el pedido y acéptalo dentro de los próximos 30 minutos.'],
+        'aceptado'  => ['destino' => 'comercio', 'tipo' => 'pedido_aceptado',
+            'asunto' => 'Tu pedido fue aceptado', 'texto' => 'El mayorista confirmó tu pedido y lo está preparando.'],
+        'rechazado' => ['destino' => 'comercio', 'tipo' => 'pedido_rechazado',
+            'asunto' => 'Tu pedido fue rechazado', 'texto' => 'El mayorista no pudo aceptarlo.'],
+        'preparando' => ['destino' => 'comercio', 'tipo' => 'pedido_preparando',
+            'asunto' => 'Tu pedido está en preparación', 'texto' => 'El mayorista está surtiendo tu pedido.'],
+        'en_camino' => ['destino' => 'comercio', 'tipo' => 'pedido_en_camino',
+            'asunto' => 'Tu pedido va en camino', 'texto' => 'El repartidor ya salió con tu pedido.'],
+        'entregado' => ['destino' => 'comercio', 'tipo' => 'pedido_entregado',
+            'asunto' => 'Pedido entregado', 'texto' => 'Tu pedido llegó. Si algo salió mal, tienes 48 horas para reportarlo.'],
+        'expirado'  => ['destino' => 'comercio', 'tipo' => 'pedido_expirado',
+            'asunto' => 'Tu pedido expiró', 'texto' => 'El pedido se canceló y el stock volvió al catálogo. Puedes volver a intentarlo.'],
+    ];
+
+    public function __construct(
+        private readonly PDO $pdo,
+        private readonly ?\App\Modules\Notificaciones\NotificacionService $notificaciones = null,
+    ) {
     }
 
     /**
@@ -147,6 +167,8 @@ final class PedidoService
                 $this->consumirReservas($pedidoId);
             }
 
+            $this->avisar($pedidoId, $estadoNuevo, $nota);
+
             if ($propia) {
                 $this->pdo->commit();
             }
@@ -159,6 +181,44 @@ final class PedidoService
         }
 
         return ['ok' => true, 'mensaje' => 'Pedido actualizado.', 'estado' => $estadoNuevo];
+    }
+
+    /** Encola el aviso correspondiente al nuevo estado. */
+    private function avisar(int $pedidoId, string $estadoNuevo, ?string $nota): void
+    {
+        if ($this->notificaciones === null || !isset(self::AVISOS[$estadoNuevo])) {
+            return;
+        }
+
+        $aviso = self::AVISOS[$estadoNuevo];
+
+        $stmt = $this->pdo->prepare(
+            'SELECT m.usuario_id AS mayorista, c.usuario_id AS comercio, p.uuid
+             FROM pedidos p
+             JOIN mayoristas_perfil m ON m.id = p.mayorista_id
+             JOIN comercios_perfil c ON c.id = p.comercio_id
+             WHERE p.id = ? LIMIT 1'
+        );
+        $stmt->execute([$pedidoId]);
+        $fila = $stmt->fetch();
+
+        if ($fila === false) {
+            return;
+        }
+
+        $usuarioId = $aviso['destino'] === 'mayorista'
+            ? (int) $fila['mayorista']
+            : (int) $fila['comercio'];
+
+        $cuerpo = $aviso['texto'] . ($nota !== null ? '<br><br><em>' . htmlspecialchars($nota, ENT_QUOTES, 'UTF-8') . '</em>' : '');
+
+        $this->notificaciones->encolar(
+            $usuarioId,
+            $aviso['tipo'],
+            $aviso['asunto'],
+            $cuerpo,
+            '/pedidos/' . $fila['uuid'],
+        );
     }
 
     /** Devuelve al catálogo el stock que estaba reservado. */
@@ -187,9 +247,24 @@ final class PedidoService
             ->execute([$pedidoId]);
     }
 
-    /** La reserva se vuelve venta: el stock ya no vuelve. */
+    /**
+     * La reserva se vuelve venta: el stock ya no vuelve al catálogo, pero
+     * tampoco sigue contando como reservado. Si no se descuenta aquí, el
+     * contador `stock_reservado` crece para siempre y los reportes mienten.
+     */
     private function consumirReservas(int $pedidoId): void
     {
+        $stmt = $this->pdo->prepare(
+            "SELECT producto_id, cantidad FROM inventario_reservas WHERE pedido_id = ? AND estado = 'activa'"
+        );
+        $stmt->execute([$pedidoId]);
+
+        foreach ($stmt->fetchAll() ?: [] as $reserva) {
+            $this->pdo->prepare(
+                'UPDATE productos SET stock_reservado = GREATEST(stock_reservado - ?, 0) WHERE id = ?'
+            )->execute([(int) $reserva['cantidad'], (int) $reserva['producto_id']]);
+        }
+
         $this->pdo->prepare("UPDATE inventario_reservas SET estado = 'consumida' WHERE pedido_id = ? AND estado = 'activa'")
             ->execute([$pedidoId]);
     }

@@ -42,6 +42,10 @@ use App\Modules\Pagos\PagoController;
 use App\Modules\Pagos\PagoService;
 use App\Modules\Pagos\SimuladoGateway;
 use App\Modules\Pagos\WebhookController;
+use App\Modules\Jobs\TickController;
+use App\Modules\Jobs\Worker;
+use App\Modules\Notificaciones\NotificacionController;
+use App\Modules\Notificaciones\NotificacionService;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -160,7 +164,8 @@ $router->post('/mayorista/productos/csv', [$catalogo, 'importarCsv'], [...$soloM
 $router->get('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/escalas-preview', [$catalogo, 'escalasPreview'], $soloMayorista);
 
 // --- Carrito y pedidos -----------------------------------------------------
-$pedidoService = new PedidoService($pdo);
+$notificaciones = new NotificacionService($pdo, __DIR__ . '/../../storage/correos');
+$pedidoService = new PedidoService($pdo, $notificaciones);
 $carritoService = new CarritoService(new CarritoRepository($pdo), new \App\Modules\Catalogo\PrecioService());
 
 $carrito = new CarritoController(
@@ -170,6 +175,9 @@ $carrito = new CarritoController(
     $pdo,
     __DIR__ . '/../Views',
 );
+
+$worker = new Worker($pdo, $pedidoService, $notificaciones);
+$tick = new TickController($worker, (string) ($_ENV['WORKER_TOKEN'] ?? ''));
 
 $configPagos = require __DIR__ . '/pagos.php';
 $pasarela = new SimuladoGateway($configPagos['webhook_secret'], 300);
@@ -200,6 +208,10 @@ $router->get('/mayorista/pedidos', [$pedidos, 'bandeja'], [$seguridad, new AuthR
 // --- Pagos y webhooks ------------------------------------------------------
 // El webhook no lleva sesión ni CSRF: se autentica con la firma HMAC.
 $router->post('/pagos/webhook', [$webhooks, 'recibir'], [$seguridad]);
+$router->get('/internal/tick', [$tick, 'tick'], [$seguridad]);
+
+$avisosCtl = new NotificacionController($notificaciones, __DIR__ . '/../Views');
+$router->get('/notificaciones', [$avisosCtl, 'index'], [$seguridad, new AuthRequired()]);
 $router->get('/pago/simulado/{referencia}', [$pagosCtl, 'mostrar'], [$seguridad, new AuthRequired()]);
 $router->post('/pago/simulado/{referencia}', [$pagosCtl, 'confirmar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 
