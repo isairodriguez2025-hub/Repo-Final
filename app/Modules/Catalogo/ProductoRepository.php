@@ -192,6 +192,41 @@ final class ProductoRepository
         }
     }
 
+    /** Escalas de descuento del producto, de mayor a menor cantidad. */
+    public function escalas(int $productoId): array
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT * FROM escala_descuentos WHERE producto_id = ? ORDER BY cantidad_minima DESC'
+        );
+        $stmt->execute([$productoId]);
+
+        return $stmt->fetchAll() ?: [];
+    }
+
+    /** Reemplaza el juego completo de escalas de un producto. */
+    public function reemplazarEscalas(int $productoId, array $escalas): void
+    {
+        $this->pdo->beginTransaction();
+
+        try {
+            $this->pdo->prepare('DELETE FROM escala_descuentos WHERE producto_id = ?')->execute([$productoId]);
+
+            $stmt = $this->pdo->prepare(
+                'INSERT INTO escala_descuentos (producto_id, cantidad_minima, tipo, valor) VALUES (?,?,?,?)'
+            );
+
+            foreach ($escalas as $e) {
+                $stmt->execute([$productoId, (int) $e['cantidad_minima'], (string) $e['tipo'], (float) $e['valor']]);
+            }
+
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            $this->pdo->rollBack();
+
+            throw $e;
+        }
+    }
+
     public function movimientos(int $productoId, int $limite = 20): array
     {
         $stmt = $this->pdo->prepare(

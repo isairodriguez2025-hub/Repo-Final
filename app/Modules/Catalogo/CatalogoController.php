@@ -16,6 +16,7 @@ final class CatalogoController
         private readonly ProductoService $servicio,
         private readonly ProductoRepository $repo,
         private readonly string $directorioVistas,
+        private readonly PrecioService $precios = new PrecioService(),
     ) {
     }
 
@@ -56,6 +57,7 @@ final class CatalogoController
             'producto'   => null,
             'errores'    => [],
             'valores'    => [],
+            'escalas'    => [],
             'puede'      => $this->servicio->puedePublicar($this->usuarioId()),
         ]);
     }
@@ -93,6 +95,7 @@ final class CatalogoController
             'producto'   => $producto,
             'errores'    => [],
             'valores'    => $producto,
+            'escalas'    => $this->repo->escalas((int) $producto['id']),
             'puede'      => true,
         ]);
     }
@@ -142,6 +145,32 @@ final class CatalogoController
         return Response::redirect('/mayorista/productos' . ($ok ? '?ok=1' : '?error=stock'));
     }
 
+    /**
+     * GET /mayorista/productos/{uuid}/escalas-preview?cantidad=N
+     * Devuelve lo que pagaría un comercio por esa cantidad.
+     */
+    public function escalasPreview(Request $peticion, array $args): Response
+    {
+        $producto = $this->repo->buscarPorUuid((string) $args['uuid']);
+
+        if ($producto === null) {
+            return Response::json(['ok' => false, 'error' => ['code' => 'NO_ENCONTRADO', 'message' => 'Producto no encontrado.']], 404);
+        }
+
+        $cantidad = (int) $peticion->query('cantidad', 0);
+
+        try {
+            $linea = $this->precios->calcularLinea($producto, $cantidad, $this->repo->escalas((int) $producto['id']));
+        } catch (\App\Modules\Catalogo\Excepciones\EscalaNoAplicaException $e) {
+            return Response::json([
+                'ok'    => false,
+                'error' => ['code' => 'CANTIDAD_INVALIDA', 'message' => $e->getMessage()],
+            ], 422);
+        }
+
+        return Response::json(['ok' => true, 'data' => $linea]);
+    }
+
     public function importarCsv(Request $peticion): Response
     {
         $archivo = $peticion->file('csv') ?? [];
@@ -157,6 +186,33 @@ final class CatalogoController
             'ok'      => $resultado['ok'],
             'errores' => $resultado['errores'],
         ]);
+    }
+
+    /** Filas de escala capturadas; las vacías se descartan. */
+    private function escalasDelFormulario(Request $peticion): array
+    {
+        $minimos = (array) $peticion->input('escala_min', []);
+        $tipos = (array) $peticion->input('escala_tipo', []);
+        $valores = (array) $peticion->input('escala_valor', []);
+
+        $escalas = [];
+
+        foreach ($minimos as $i => $minimo) {
+            $minimo = (int) $minimo;
+            $valor = (float) ($valores[$i] ?? 0);
+
+            if ($minimo <= 0 || $valor <= 0) {
+                continue;
+            }
+
+            $escalas[] = [
+                'cantidad_minima' => $minimo,
+                'tipo'            => (string) ($tipos[$i] ?? 'porcentaje'),
+                'valor'           => $valor,
+            ];
+        }
+
+        return $escalas;
     }
 
     private function datosDelFormulario(Request $peticion): array
@@ -179,6 +235,7 @@ final class CatalogoController
             'restringido'      => (bool) $peticion->input('restringido', false),
             'activo'           => (bool) $peticion->input('activo', false),
             'stock_inicial'    => (int) $peticion->input('stock_inicial', 0),
+            'escalas'          => $this->escalasDelFormulario($peticion),
         ];
     }
 }

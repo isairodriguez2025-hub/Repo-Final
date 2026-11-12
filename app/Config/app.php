@@ -137,6 +137,7 @@ $router->get('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/editar', [$catalogo, 
 $router->post('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}', [$catalogo, 'actualizar'], [...$soloMayorista, new CsrfProtect()]);
 $router->post('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/stock', [$catalogo, 'ajustarStock'], [...$soloMayorista, new CsrfProtect()]);
 $router->post('/mayorista/productos/csv', [$catalogo, 'importarCsv'], [...$soloMayorista, new CsrfProtect()]);
+$router->get('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/escalas-preview', [$catalogo, 'escalasPreview'], $soloMayorista);
 
 // Panel de ejemplo protegido por rol.
 $router->get('/comercio', static fn (): Response => Response::html(

@@ -25,6 +25,7 @@ final class ProductoService
         private readonly ProductoRepository $repo,
         private readonly AuditLogger $auditoria,
         private readonly PDO $pdo,
+        private readonly PrecioService $precios = new PrecioService(),
     ) {
     }
 
@@ -66,6 +67,12 @@ final class ProductoService
             return ['ok' => false, 'mensaje' => $v->primerError() ?? 'Datos inválidos.', 'errores' => $v->errores(), 'id' => null];
         }
 
+        try {
+            $this->precios->validarEscalas($datos['escalas'] ?? []);
+        } catch (\App\Modules\Catalogo\Excepciones\EscalaInvalidaException $e) {
+            return ['ok' => false, 'mensaje' => $e->getMessage(), 'errores' => ['escalas' => $e->getMessage()], 'id' => null];
+        }
+
         $datos['mayorista_id'] = $mayoristaId;
 
         // Sin KYC aprobado no se publica nada, aunque el formulario lo pida.
@@ -86,6 +93,10 @@ final class ProductoService
             $this->repo->ajustarStock($id, (int) $datos['stock_inicial'], 'entrada', $usuarioId, 'Stock inicial');
         }
 
+        if (!empty($datos['escalas'])) {
+            $this->repo->reemplazarEscalas($id, $datos['escalas']);
+        }
+
         $this->auditoria->log('producto_creado', $usuarioId, 'producto', (string) $id, [
             'nombre' => $datos['nombre'],
             'precio' => $datos['precio_base'],
@@ -102,7 +113,14 @@ final class ProductoService
             return ['ok' => false, 'mensaje' => $v->primerError() ?? 'Datos inválidos.', 'errores' => $v->errores()];
         }
 
+        try {
+            $this->precios->validarEscalas($datos['escalas'] ?? []);
+        } catch (\App\Modules\Catalogo\Excepciones\EscalaInvalidaException $e) {
+            return ['ok' => false, 'mensaje' => $e->getMessage(), 'errores' => ['escalas' => $e->getMessage()]];
+        }
+
         $this->repo->actualizar($productoId, $datos);
+        $this->repo->reemplazarEscalas($productoId, $datos['escalas'] ?? []);
         $this->auditoria->log('producto_actualizado', $usuarioId, 'producto', (string) $productoId, null, $ip);
 
         return ['ok' => true, 'mensaje' => 'Producto actualizado.', 'errores' => []];
