@@ -54,6 +54,10 @@ $contenido = '<h1>Mi ruta</h1>'
     . '<h2>Ofertas</h2>' . $ofertasHtml
     . '<h2>Entregas de hoy</h2>' . $rutaHtml;
 
+$enViaje = $ruta !== [];
+$tokenCsrf = $csrf;
+$snippet = '';
+
 $scripts = <<<'JS'
 document.querySelectorAll('.cuenta').forEach(el => {
     const limite = new Date(el.dataset.limite.replace(' ', 'T')).getTime();
@@ -65,6 +69,41 @@ document.querySelectorAll('.cuenta').forEach(el => {
     pintar();
     setInterval(pintar, 1000);
 });
+
+// Durante el viaje se envían posiciones del GPS cada ~12 segundos.
+if (""" . ($enViaje ? "true" : "false") . """ && navigator.geolocation) {
+    let cola = [];
+
+    navigator.geolocation.watchPosition(
+        pos => {
+            cola.push({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                precision_m: Math.round(pos.coords.accuracy || 0),
+                capturado_en: new Date(pos.timestamp).toISOString()
+            });
+        },
+        err => console.warn('GPS:', err.message),
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 }
+    );
+
+    setInterval(async () => {
+        if (cola.length === 0) return;
+        const lote = cola.splice(0, 20);
+
+        try {
+            await fetch('/tracking/posicion', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': """ . $tokenCsrf . """ },
+                body: JSON.stringify(lote)
+            });
+        } catch (e) {
+            console.warn('No se pudo enviar la posición');
+        }
+    }, 12000);
+}
+
 JS;
 
 require __DIR__ . '/../layout.php';

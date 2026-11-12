@@ -90,6 +90,11 @@ if ($esRepartidor) {
     };
 }
 
+// El comercio puede seguir el viaje mientras va en camino.
+if ($esComercio && in_array($estado, ['en_camino', 'en_puerta'], true)) {
+    $acciones = '<a class="boton" href="/pedidos/' . $e($pedido['uuid']) . '/seguimiento" style="padding:9px 16px;font-size:14px">Ver en el mapa</a>';
+}
+
 // El comercio ve su PIN cuando el repartidor está en la puerta.
 $avisoPin = '';
 if ($esComercio && $estado === 'en_puerta' && !empty($pedido['pin_entrega_visible'])) {

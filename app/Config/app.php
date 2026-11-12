@@ -50,6 +50,8 @@ use App\Modules\Logistica\AsignacionService;
 use App\Modules\Logistica\PruebaEntregaService;
 use App\Modules\Logistica\RepartidorController;
 use App\Modules\Logistica\TarifaService;
+use App\Modules\Logistica\TrackingController;
+use App\Modules\Logistica\TrackingService;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -194,6 +196,9 @@ $pruebas = new PruebaEntregaService($pdo);
 $pedidos = new PedidosController($pedidoService, $pdo, __DIR__ . '/../Views', $pagoService, $asignacion, $pruebas);
 
 $repartidorCtl = new RepartidorController($asignacion, $pruebas, $pedidoService, $pdo, __DIR__ . '/../Views');
+
+$tracking = new TrackingService($pdo, new \App\Core\Cache(__DIR__ . '/../../storage/cache', 120));
+$trackingCtl = new TrackingController($tracking, $pdo, __DIR__ . '/../Views');
 $webhooks = new WebhookController($pagoService);
 $pagosCtl = new PagoController($pagoService, $pasarela, $pdo, __DIR__ . '/../Views');
 
@@ -231,6 +236,11 @@ $router->post('/repartidor/disponibilidad', [$repartidorCtl, 'disponibilidad'], 
 $router->post('/repartidor/ofertas/{id:\d+}/aceptar', [$repartidorCtl, 'aceptar'], [...$soloRepartidor, new CsrfProtect()]);
 $router->post('/repartidor/pedidos/{uuid:[0-9a-fA-F-]{36}}/recolectar', [$repartidorCtl, 'recolectar'], [...$soloRepartidor, new CsrfProtect()]);
 $router->post('/repartidor/pedidos/{uuid:[0-9a-fA-F-]{36}}/entregar', [$repartidorCtl, 'entregar'], [...$soloRepartidor, new CsrfProtect()]);
+$router->post('/tracking/posicion', [$trackingCtl, 'posicion'], [...$soloRepartidor, new CsrfProtect()]);
+
+// --- Seguimiento -----------------------------------------------------------
+$router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}/tracking', [$trackingCtl, 'json'], [$seguridad, new AuthRequired()]);
+$router->get('/pedidos/{uuid:[0-9a-fA-F-]{36}}/seguimiento', [$trackingCtl, 'mapa'], [$seguridad, new AuthRequired()]);
 $router->get('/pago/simulado/{referencia}', [$pagosCtl, 'mostrar'], [$seguridad, new AuthRequired()]);
 $router->post('/pago/simulado/{referencia}', [$pagosCtl, 'confirmar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 
