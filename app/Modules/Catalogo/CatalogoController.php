@@ -1,0 +1,184 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Catalogo;
+
+use App\Core\Csrf;
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Session;
+use App\Core\View;
+
+final class CatalogoController
+{
+    public function __construct(
+        private readonly ProductoService $servicio,
+        private readonly ProductoRepository $repo,
+        private readonly string $directorioVistas,
+    ) {
+    }
+
+    private function vista(string $plantilla, array $datos, int $estado = 200): Response
+    {
+        $nonce = base64_encode(random_bytes(16));
+        $vista = new View($this->directorioVistas, $nonce);
+
+        $datos['nonce'] ??= $nonce;
+        $datos['csrf'] ??= Csrf::token();
+
+        return Response::html($vista->render($plantilla, $datos), $estado)->withNonce($nonce);
+    }
+
+    private function usuarioId(): int
+    {
+        return (int) Session::obtener('user_id', 0);
+    }
+
+    public function index(Request $peticion): Response
+    {
+        $mayoristaId = $this->servicio->mayoristaId($this->usuarioId());
+
+        return $this->vista('catalogo/lista', [
+            'titulo'     => 'Mis productos',
+            'productos'  => $mayoristaId === null ? [] : $this->repo->listarPorMayorista($mayoristaId, (string) $peticion->query('q', '')),
+            'busqueda'   => (string) $peticion->query('q', ''),
+            'puede'      => $this->servicio->puedePublicar($this->usuarioId()),
+            'mensaje'    => $peticion->query('ok') !== null ? 'Cambios guardados.' : null,
+        ]);
+    }
+
+    public function nuevoForm(Request $peticion): Response
+    {
+        return $this->vista('catalogo/form', [
+            'titulo'     => 'Nuevo producto',
+            'categorias' => $this->repo->categorias(),
+            'producto'   => null,
+            'errores'    => [],
+            'valores'    => [],
+            'puede'      => $this->servicio->puedePublicar($this->usuarioId()),
+        ]);
+    }
+
+    public function crear(Request $peticion): Response
+    {
+        $datos = $this->datosDelFormulario($peticion);
+        $resultado = $this->servicio->crear($this->usuarioId(), $datos, $peticion->ip());
+
+        if (!$resultado['ok']) {
+            return $this->vista('catalogo/form', [
+                'titulo'     => 'Nuevo producto',
+                'categorias' => $this->repo->categorias(),
+                'producto'   => null,
+                'errores'    => $resultado['errores'],
+                'valores'    => $datos,
+                'puede'      => $this->servicio->puedePublicar($this->usuarioId()),
+            ], 422);
+        }
+
+        return Response::redirect('/mayorista/productos?ok=1');
+    }
+
+    public function editarForm(Request $peticion, array $args): Response
+    {
+        $producto = $this->repo->buscarPorUuid((string) $args['uuid']);
+
+        if ($producto === null) {
+            return Response::json(['ok' => false, 'error' => ['code' => 'NO_ENCONTRADO', 'message' => 'Producto no encontrado.']], 404);
+        }
+
+        return $this->vista('catalogo/form', [
+            'titulo'     => 'Editar producto',
+            'categorias' => $this->repo->categorias(),
+            'producto'   => $producto,
+            'errores'    => [],
+            'valores'    => $producto,
+            'puede'      => true,
+        ]);
+    }
+
+    public function actualizar(Request $peticion, array $args): Response
+    {
+        $producto = $this->repo->buscarPorUuid((string) $args['uuid']);
+
+        if ($producto === null) {
+            return Response::json(['ok' => false, 'error' => ['code' => 'NO_ENCONTRADO', 'message' => 'Producto no encontrado.']], 404);
+        }
+
+        $datos = $this->datosDelFormulario($peticion);
+        $resultado = $this->servicio->actualizar($this->usuarioId(), (int) $producto['id'], $datos, $peticion->ip());
+
+        if (!$resultado['ok']) {
+            return $this->vista('catalogo/form', [
+                'titulo'     => 'Editar producto',
+                'categorias' => $this->repo->categorias(),
+                'producto'   => $producto,
+                'errores'    => $resultado['errores'],
+                'valores'    => $datos,
+                'puede'      => true,
+            ], 422);
+        }
+
+        return Response::redirect('/mayorista/productos?ok=1');
+    }
+
+    public function ajustarStock(Request $peticion, array $args): Response
+    {
+        $producto = $this->repo->buscarPorUuid((string) $args['uuid']);
+
+        if ($producto === null) {
+            return Response::json(['ok' => false, 'error' => ['code' => 'NO_ENCONTRADO', 'message' => 'Producto no encontrado.']], 404);
+        }
+
+        $delta = (int) $peticion->input('cantidad', 0);
+        $motivo = (string) $peticion->input('motivo', 'Ajuste manual');
+
+        if ($delta === 0) {
+            return Response::redirect('/mayorista/productos');
+        }
+
+        $ok = $this->repo->ajustarStock((int) $producto['id'], $delta, 'ajuste', $this->usuarioId(), $motivo);
+
+        return Response::redirect('/mayorista/productos' . ($ok ? '?ok=1' : '?error=stock'));
+    }
+
+    public function importarCsv(Request $peticion): Response
+    {
+        $archivo = $peticion->file('csv') ?? [];
+
+        if (($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            return Response::redirect('/mayorista/productos?error=csv');
+        }
+
+        $resultado = $this->servicio->importarCsv($this->usuarioId(), (string) $archivo['tmp_name'], $peticion->ip());
+
+        return $this->vista('catalogo/importacion', [
+            'titulo'  => 'Importación de catálogo',
+            'ok'      => $resultado['ok'],
+            'errores' => $resultado['errores'],
+        ]);
+    }
+
+    private function datosDelFormulario(Request $peticion): array
+    {
+        return [
+            'nombre'           => (string) $peticion->input('nombre', ''),
+            'categoria_id'     => (int) $peticion->input('categoria_id', 0),
+            'descripcion'      => (string) $peticion->input('descripcion', ''),
+            'precio_base'      => (float) $peticion->input('precio_base', 0),
+            'iva_tasa'         => (float) $peticion->input('iva_tasa', 16),
+            'unidad_venta'     => (string) $peticion->input('unidad_venta', ''),
+            'contenido'        => (string) $peticion->input('contenido', ''),
+            'peso_kg'          => (float) $peticion->input('peso_kg', 0),
+            'volumen_m3'       => (float) $peticion->input('volumen_m3', 0),
+            'cantidad_minima'  => (int) $peticion->input('cantidad_minima', 1),
+            'multiplo_venta'   => (int) $peticion->input('multiplo_venta', 1),
+            'perecedero'       => (bool) $peticion->input('perecedero', false),
+            'requiere_frio'    => (bool) $peticion->input('requiere_frio', false),
+            'inflamable'       => (bool) $peticion->input('inflamable', false),
+            'restringido'      => (bool) $peticion->input('restringido', false),
+            'activo'           => (bool) $peticion->input('activo', false),
+            'stock_inicial'    => (int) $peticion->input('stock_inicial', 0),
+        ];
+    }
+}

@@ -81,6 +81,12 @@ final class Validator
         }
     }
 
+    /** Añade un error que no viene de una regla sino de una regla de negocio. */
+    public function agregarError(string $campo, string $mensaje): void
+    {
+        $this->errores[$campo] = $mensaje;
+    }
+
     public function falla(): bool
     {
         return $this->errores !== [];

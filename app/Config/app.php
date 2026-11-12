@@ -24,6 +24,9 @@ use App\Modules\Kyc\KycRepository;
 use App\Modules\Kyc\KycService;
 use App\Modules\Perfil\PerfilController;
 use App\Modules\Perfil\PerfilRepository;
+use App\Modules\Catalogo\CatalogoController;
+use App\Modules\Catalogo\ProductoRepository;
+use App\Modules\Catalogo\ProductoService;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -89,6 +92,13 @@ $kyc = new KycService(
 
 $perfil = new PerfilController($perfiles, $kyc, __DIR__ . '/../Views');
 
+$productos = new ProductoRepository($pdo);
+$catalogo = new CatalogoController(
+    new ProductoService($productos, $auditoria, $pdo),
+    $productos,
+    __DIR__ . '/../Views',
+);
+
 $router->get('/login', [$auth, 'loginForm'], [$seguridad]);
 $router->post('/login', [$auth, 'login'], [$seguridad, new CsrfProtect(), new RateLimit(5, 900, $directorioRate)]);
 $router->get('/registro', [$auth, 'registroForm'], [$seguridad]);
@@ -109,6 +119,17 @@ $router->post('/kyc', [$perfil, 'subirKyc'], [$seguridad, new AuthRequired(), ne
 $router->get('/admin/kyc', [$perfil, 'colaKyc'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc'])]);
 $router->post('/admin/kyc/{id:\d+}/aprobar', [$perfil, 'aprobarKyc'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc']), new CsrfProtect()]);
 $router->post('/admin/kyc/{id:\d+}/rechazar', [$perfil, 'rechazarKyc'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc']), new CsrfProtect()]);
+
+// --- Catálogo del mayorista ------------------------------------------------
+$soloMayorista = [$seguridad, new AuthRequired(), new RoleRequired(['mayorista'])];
+
+$router->get('/mayorista/productos', [$catalogo, 'index'], $soloMayorista);
+$router->get('/mayorista/productos/nuevo', [$catalogo, 'nuevoForm'], $soloMayorista);
+$router->post('/mayorista/productos', [$catalogo, 'crear'], [...$soloMayorista, new CsrfProtect()]);
+$router->get('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/editar', [$catalogo, 'editarForm'], $soloMayorista);
+$router->post('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}', [$catalogo, 'actualizar'], [...$soloMayorista, new CsrfProtect()]);
+$router->post('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/stock', [$catalogo, 'ajustarStock'], [...$soloMayorista, new CsrfProtect()]);
+$router->post('/mayorista/productos/csv', [$catalogo, 'importarCsv'], [...$soloMayorista, new CsrfProtect()]);
 
 // Panel de ejemplo protegido por rol.
 $router->get('/comercio', static fn (): Response => Response::html(
