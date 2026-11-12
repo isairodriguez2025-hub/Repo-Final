@@ -44,7 +44,8 @@ final class CatalogoTest extends TestCase
         $this->usuarioId = (int) $this->pdo->lastInsertId();
 
         $this->pdo->prepare(
-            "INSERT INTO mayoristas_perfil (usuario_id, nombre_comercial, estado_kyc, activo) VALUES (?, 'Prueba', 'aprobado', 1)"
+            "INSERT INTO mayoristas_perfil (uuid, usuario_id, nombre_comercial, categoria_giro, estado_kyc, activo)
+             VALUES (UUID(), ?, 'Prueba', 'abarrotes', 'aprobado', 1)"
         )->execute([$this->usuarioId]);
         $this->mayoristaId = (int) $this->pdo->lastInsertId();
     }

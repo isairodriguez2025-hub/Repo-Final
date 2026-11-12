@@ -27,6 +27,11 @@ use App\Modules\Perfil\PerfilRepository;
 use App\Modules\Catalogo\CatalogoController;
 use App\Modules\Catalogo\ProductoRepository;
 use App\Modules\Catalogo\ProductoService;
+use App\Core\Cache;
+use App\Modules\Busqueda\BusquedaController;
+use App\Modules\Busqueda\BusquedaRepository;
+use App\Modules\Busqueda\BusquedaService;
+use App\Modules\Sistema\StaticController;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -138,6 +143,23 @@ $router->post('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}', [$catalogo, 'actua
 $router->post('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/stock', [$catalogo, 'ajustarStock'], [...$soloMayorista, new CsrfProtect()]);
 $router->post('/mayorista/productos/csv', [$catalogo, 'importarCsv'], [...$soloMayorista, new CsrfProtect()]);
 $router->get('/mayorista/productos/{uuid:[0-9a-fA-F-]{36}}/escalas-preview', [$catalogo, 'escalasPreview'], $soloMayorista);
+
+// --- Búsqueda geográfica ---------------------------------------------------
+$busqueda = new BusquedaController(
+    new BusquedaService(
+        new BusquedaRepository($pdo),
+        new Cache(__DIR__ . '/../../storage/cache', BusquedaService::TTL_BUSQUEDA),
+        $pdo,
+    ),
+    __DIR__ . '/../Views',
+);
+
+$estaticos = new StaticController(__DIR__ . '/../../public/assets');
+$router->get('/assets/{ruta:.*}', [$estaticos, 'servir'], [$seguridad]);
+
+$router->get('/busqueda/productos', [$busqueda, 'productos'], [$seguridad]);
+$router->get('/buscar', [$busqueda, 'pagina'], [$seguridad, new AuthRequired()]);
+$router->get('/mayoristas/{uuid:[0-9a-fA-F-]{36}}', [$busqueda, 'mayorista'], [$seguridad]);
 
 // Panel de ejemplo protegido por rol.
 $router->get('/comercio', static fn (): Response => Response::html(

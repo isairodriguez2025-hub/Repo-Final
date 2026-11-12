@@ -34,6 +34,9 @@ foreach ($enlaces as [$href, $texto]) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $e($titulo) ?> · Didi2</title>
+    <?php if (!empty($mapa)): ?>
+        <link rel="stylesheet" href="/assets/leaflet/leaflet.css">
+    <?php endif; ?>
     <style nonce="<?= $e($nonce) ?>">
         :root {
             --tinta: #1a1a1a;
@@ -200,6 +203,7 @@ foreach ($enlaces as [$href, $texto]) {
         .aviso--error { background: #fef2f2; border: 1px solid #f6d5d5; color: var(--error); }
         .error-campo { font-size: 12px; color: var(--error); display: block; margin-top: 3px; }
         .vacio { color: var(--gris-claro); padding: 20px 0; }
+        <?= $estilos ?? '' ?>
         @media (max-width: 640px) {
             .barra__interior { gap: 16px; padding: 0 16px; }
             nav { gap: 14px; }
@@ -224,5 +228,11 @@ foreach ($enlaces as [$href, $texto]) {
 <main>
     <?= $contenido ?>
 </main>
+<?php if (!empty($mapa)): ?>
+    <script src="/assets/leaflet/leaflet.js"></script>
+<?php endif; ?>
+<?php if (!empty($scripts)): ?>
+    <script nonce="<?= $e($nonce) ?>"><?= $scripts ?></script>
+<?php endif; ?>
 </body>
 </html>

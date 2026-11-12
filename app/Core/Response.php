@@ -46,6 +46,22 @@ final class Response
         return $r;
     }
 
+    /** Respuesta binaria desde un archivo del disco (assets estáticos). */
+    public static function archivo(string $ruta, string $mime, int $status = 200): self
+    {
+        $contenido = @file_get_contents($ruta);
+
+        if ($contenido === false) {
+            return self::json(['ok' => false, 'error' => ['code' => 'NO_ENCONTRADO', 'message' => 'Archivo no encontrado.']], 404);
+        }
+
+        $respuesta = new self($contenido, $status);
+        $respuesta->headers['Content-Type'] = $mime;
+        $respuesta->headers['Cache-Control'] = 'public, max-age=86400';
+
+        return $respuesta;
+    }
+
     public function withNonce(string $nonce): self
     {
         $this->nonce = $nonce;
@@ -95,8 +111,8 @@ final class Response
             // se bloquea y la página sale sin diseño. style-src-attr permite los
             // atributos style="…" de las vistas, que no pueden ejecutar código.
             'Content-Security-Policy' => $this->nonce === null
-                ? "default-src 'self'; img-src 'self' data:; style-src 'self'; style-src-attr 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"
-                : "default-src 'self'; img-src 'self' data:; style-src 'self' 'nonce-{$this->nonce}'; style-src-attr 'unsafe-inline'; script-src 'self' 'nonce-{$this->nonce}'; frame-ancestors 'none'",
+                ? "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self'; style-src-attr 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'"
+                : "default-src 'self'; img-src 'self' data: https://*.tile.openstreetmap.org; style-src 'self' 'nonce-{$this->nonce}'; style-src-attr 'unsafe-inline'; script-src 'self' 'nonce-{$this->nonce}'; frame-ancestors 'none'",
         ];
 
         // HSTS solo tiene sentido sobre HTTPS.
