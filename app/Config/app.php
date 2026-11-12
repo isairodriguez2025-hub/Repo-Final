@@ -162,9 +162,20 @@ $router->get('/buscar', [$busqueda, 'pagina'], [$seguridad, new AuthRequired()])
 $router->get('/mayoristas/{uuid:[0-9a-fA-F-]{36}}', [$busqueda, 'mayorista'], [$seguridad]);
 
 // Panel de ejemplo protegido por rol.
-$router->get('/comercio', static fn (): Response => Response::html(
-    '<h1>Panel del comercio</h1><p>Solo entra quien tiene el rol comercio.</p>'
-), [$seguridad, new AuthRequired(), new RoleRequired(['comercio'])]);
+// --- Paneles de entrada ----------------------------------------------------
+// El login manda a /comercio, /mayorista, /admin o /repartidor según el rol.
+// Cada uno redirige a la pantalla real de ese rol.
+$router->get('/comercio', static fn (): Response => Response::redirect('/buscar'),
+    [$seguridad, new AuthRequired(), new RoleRequired(['comercio'])]);
+
+$router->get('/mayorista', static fn (): Response => Response::redirect('/mayorista/productos'),
+    [$seguridad, new AuthRequired(), new RoleRequired(['mayorista'])]);
+
+$router->get('/admin', static fn (): Response => Response::redirect('/admin/kyc'),
+    [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc'])]);
+
+$router->get('/repartidor', static fn (): Response => Response::redirect('/perfil'),
+    [$seguridad, new AuthRequired(), new RoleRequired(['repartidor'])]);
 
 $contenedor = new Container();
 $contenedor->set(Logger::class, $logger);
