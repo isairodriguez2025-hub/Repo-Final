@@ -121,7 +121,14 @@ final class PedidoService
             return ['ok' => false, 'mensaje' => 'Tu rol no puede hacer esta transición.'];
         }
 
-        $this->pdo->beginTransaction();
+        // Puede venir dentro de otra transacción (por ejemplo, desde el
+        // procesamiento de un webhook). PDO no soporta transacciones anidadas,
+        // así que solo se abre una si no hay ninguna activa.
+        $propia = !$this->pdo->inTransaction();
+
+        if ($propia) {
+            $this->pdo->beginTransaction();
+        }
 
         try {
             $this->pdo->prepare('UPDATE pedidos SET estado = ? WHERE id = ? AND estado = ?')
@@ -140,9 +147,13 @@ final class PedidoService
                 $this->consumirReservas($pedidoId);
             }
 
-            $this->pdo->commit();
+            if ($propia) {
+                $this->pdo->commit();
+            }
         } catch (\Throwable $e) {
-            $this->pdo->rollBack();
+            if ($propia && $this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
 
             throw $e;
         }

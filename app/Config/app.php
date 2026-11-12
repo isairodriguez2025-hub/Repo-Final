@@ -38,6 +38,10 @@ use App\Modules\Carrito\CarritoService;
 use App\Modules\Pedidos\CheckoutService;
 use App\Modules\Pedidos\PedidoService;
 use App\Modules\Pedidos\PedidosController;
+use App\Modules\Pagos\PagoController;
+use App\Modules\Pagos\PagoService;
+use App\Modules\Pagos\SimuladoGateway;
+use App\Modules\Pagos\WebhookController;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -167,7 +171,13 @@ $carrito = new CarritoController(
     __DIR__ . '/../Views',
 );
 
-$pedidos = new PedidosController($pedidoService, $pdo, __DIR__ . '/../Views');
+$configPagos = require __DIR__ . '/pagos.php';
+$pasarela = new SimuladoGateway($configPagos['webhook_secret'], 300);
+$pagoService = new PagoService($pdo, $pedidoService, $pasarela, $auditoria, $configPagos);
+
+$pedidos = new PedidosController($pedidoService, $pdo, __DIR__ . '/../Views', $pagoService);
+$webhooks = new WebhookController($pagoService);
+$pagosCtl = new PagoController($pagoService, $pasarela, $pdo, __DIR__ . '/../Views');
 
 $soloComercio = [$seguridad, new AuthRequired(), new RoleRequired(['comercio'])];
 
@@ -186,6 +196,12 @@ $router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/{accion:aceptar|rechazar|prepara
     [$pedidos, 'accion'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 
 $router->get('/mayorista/pedidos', [$pedidos, 'bandeja'], [$seguridad, new AuthRequired(), new RoleRequired(['mayorista'])]);
+
+// --- Pagos y webhooks ------------------------------------------------------
+// El webhook no lleva sesión ni CSRF: se autentica con la firma HMAC.
+$router->post('/pagos/webhook', [$webhooks, 'recibir'], [$seguridad]);
+$router->get('/pago/simulado/{referencia}', [$pagosCtl, 'mostrar'], [$seguridad, new AuthRequired()]);
+$router->post('/pago/simulado/{referencia}', [$pagosCtl, 'confirmar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 
 // --- Búsqueda geográfica ---------------------------------------------------
 $busqueda = new BusquedaController(

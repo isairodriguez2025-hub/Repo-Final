@@ -27,6 +27,7 @@ final class PedidosController
         private readonly PedidoService $servicio,
         private readonly PDO $pdo,
         private readonly string $directorioVistas,
+        private readonly ?\App\Modules\Pagos\PagoService $pagos = null,
     ) {
     }
 
@@ -246,11 +247,19 @@ final class PedidosController
 
         $id = (int) $pedido['id'];
 
+        // Se marca la intención de pago y se manda a la pasarela. El pedido NO
+        // avanza aquí: avanza cuando la pasarela confirma por webhook.
         $this->servicio->transicionar($id, 'pendiente_pago', $this->usuarioId(), $this->roles(), 'Confirmado por el comercio');
-        $this->servicio->transicionar($id, 'pago_autorizado', null, ['sistema'], 'Pago simulado aprobado');
-        $this->servicio->transicionar($id, 'pendiente_aceptacion', null, ['sistema'], 'En espera del mayorista');
 
-        return Response::redirect('/pedidos/' . $pedido['uuid'] . '?ok=1');
+        if ($this->pagos !== null) {
+            $intencion = $this->pagos->crearIntencion((int) $pedido['checkout_id']);
+
+            if ($intencion['ok']) {
+                return Response::redirect($intencion['intencion']['url_pago']);
+            }
+        }
+
+        return Response::redirect('/pedidos/' . $pedido['uuid'] . '?error=' . urlencode('No se pudo iniciar el pago.'));
     }
 
     /** GET /pedidos/{uuid}/surtido — hoja imprimible. */

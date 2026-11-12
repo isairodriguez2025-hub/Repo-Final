@@ -1,0 +1,21 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Parámetros de comisiones y pasarela (RN-09).
+ *
+ * Los porcentajes se leen de .env para poder ajustarlos sin tocar código.
+ */
+return [
+    // Comisión que se queda la plataforma sobre el subtotal de productos.
+    'comision_mayorista_pct' => (float) ($_ENV['COMISION_MAYORISTA_PCT'] ?? 8),
+    // Comisión sobre el envío.
+    'comision_logistica_pct'  => (float) ($_ENV['COMISION_LOGISTICA_PCT'] ?? 12),
+    // Cargo fijo de servicio por pedido (MXN).
+    'cargo_servicio'          => (float) ($_ENV['CARGO_SERVICIO'] ?? 15),
+    // Lo que cobra la pasarela por transacción.
+    'comision_pasarela_pct'   => (float) ($_ENV['COMISION_PASARELA_PCT'] ?? 3.49),
+    // Secreto para firmar y verificar webhooks.
+    'webhook_secret'          => (string) ($_ENV['PAGOS_WEBHOOK_SECRET'] ?? 'didi2-dev-secret'),
+];
