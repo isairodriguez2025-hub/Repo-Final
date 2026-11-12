@@ -20,11 +20,30 @@ foreach ($categorias as $c) {
     $opcionesCategoria .= '<option value="' . (int) $c['id'] . '"' . $sel . '>' . $e($c['nombre']) . '</option>';
 }
 
+$opcionesRadio = '';
+foreach ([2, 5, 10, 20, 30] as $km) {
+    $sel = (float) $filtros['radio'] === (float) $km ? ' selected' : '';
+    $opcionesRadio .= '<option value="' . $km . '"' . $sel . '>' . $km . ' km</option>';
+}
+
 $opcionesOrden = '';
 foreach (['distancia' => 'Más cercano', 'precio_asc' => 'Menor precio', 'precio_desc' => 'Mayor precio', 'reputacion' => 'Mejor calificado'] as $valor => $texto) {
     $sel = $filtros['orden'] === $valor ? ' selected' : '';
     $opcionesOrden .= '<option value="' . $valor . '"' . $sel . '>' . $e($texto) . '</option>';
 }
+
+// Desplegable propio: el <select> nativo se conserva oculto para que el
+// formulario siga funcionando sin JavaScript, y encima se dibuja el menú.
+$combo = static function (string $nombre, string $opciones, string $estilo): string {
+    return '<div class="combo" style="' . $estilo . '">'
+        . '<select name="' . $nombre . '" class="combo__nativo" tabindex="-1" aria-hidden="true">' . $opciones . '</select>'
+        . '<button type="button" class="combo__boton" aria-haspopup="listbox" aria-expanded="false">'
+        . '<span class="combo__texto"></span>'
+        . '<svg class="combo__flecha" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>'
+        . '</button>'
+        . '<ul class="combo__lista" role="listbox" hidden></ul>'
+        . '</div>';
+};
 
 $puedeComprar = \App\Core\Session::obtener('user_id', null) !== null
     && in_array('comercio', (array) \App\Core\Session::obtener('roles', []), true);
@@ -104,15 +123,9 @@ $contenido = '<h1>Buscar productos</h1>'
     . '<input type="hidden" name="lat" id="f-lat" value="' . $e((string) $lat) . '">'
     . '<input type="hidden" name="lng" id="f-lng" value="' . $e((string) $lng) . '">'
     . '<input name="q" value="' . $e($filtros['q']) . '" placeholder="¿Qué buscas? café, cloro, tornillo…" style="flex:2;min-width:200px">'
-    . '<select name="categoria_id" style="flex:1;min-width:150px">' . $opcionesCategoria . '</select>'
-    . '<select name="radio" style="flex:0 0 130px">'
-    . '<option value="2"' . ($filtros['radio'] == 2 ? ' selected' : '') . '>2 km</option>'
-    . '<option value="5"' . ($filtros['radio'] == 5 ? ' selected' : '') . '>5 km</option>'
-    . '<option value="10"' . ($filtros['radio'] == 10 ? ' selected' : '') . '>10 km</option>'
-    . '<option value="20"' . ($filtros['radio'] == 20 ? ' selected' : '') . '>20 km</option>'
-    . '<option value="30"' . ($filtros['radio'] == 30 ? ' selected' : '') . '>30 km</option>'
-    . '</select>'
-    . '<select name="orden" style="flex:0 0 160px">' . $opcionesOrden . '</select>'
+    . $combo('categoria_id', $opcionesCategoria, 'flex:1;min-width:170px')
+    . $combo('radio', $opcionesRadio, 'flex:0 0 120px')
+    . $combo('orden', $opcionesOrden, 'flex:0 0 170px')
     . '<button type="submit">Buscar</button>'
     . '</form>'
     . '<div class="buscador">'
@@ -142,13 +155,52 @@ $estilos = <<<'CSS'
     padding-right:38px; background-repeat:no-repeat; background-position:right 14px center;
     background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
-.filtros button {
+.filtros > button {
     height:44px; padding:0 22px; font-size:14px; font-weight:500; color:#fff;
     background:#1f4d3a; border:0; border-radius:10px; cursor:pointer; white-space:nowrap;
     transition:background .18s ease, transform .1s ease;
 }
-.filtros button:hover { background:#17392b; }
-.filtros button:active { transform:translateY(1px); }
+.filtros > button:hover { background:#17392b; }
+.filtros > button:active { transform:translateY(1px); }
+
+
+/* --- Desplegable propio (reemplaza el <select> nativo) ------------------- */
+.combo { position: relative; }
+.combo__nativo {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: 0; pointer-events: none;
+}
+.combo__boton {
+    width: 100%; height: 44px; padding: 0 14px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    background: #fff; border: 1px solid #E5E7EB; border-radius: 10px;
+    font: inherit; font-size: 14px; color: #111827; text-align: left; cursor: pointer;
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+.combo__boton:hover { border-color: #d1d5db; }
+.combo__boton:focus-visible,
+.combo--abierto .combo__boton {
+    outline: none; border-color: #1f4d3a; box-shadow: 0 0 0 3px rgba(31,77,58,.10);
+}
+.combo__texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.combo__flecha { flex: 0 0 auto; color: #6b7280; transition: transform .18s ease; }
+.combo--abierto .combo__flecha { transform: rotate(180deg); }
+
+.combo__lista {
+    position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
+    margin: 0; padding: 6px; list-style: none;
+    background: #fff; border: 1px solid #E5E7EB; border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(17,24,39,.14), 0 2px 8px rgba(17,24,39,.06);
+    max-height: 280px; overflow-y: auto;
+}
+.combo__opcion {
+    padding: 8px 16px; border-radius: 8px;
+    font-size: 14px; color: #374151; cursor: pointer;
+    transition: background .12s ease, color .12s ease;
+}
+.combo__opcion:hover,
+.combo__opcion.activa { background: #f3f4f6; color: #111827; }
+.combo__opcion[aria-selected="true"] { background: #eaf1ec; color: #1f4d3a; font-weight: 500; }
 
 /* Dos columnas solo en computadora */
 .buscador { display:grid; grid-template-columns:1fr; gap:18px; align-items:start; width:100%; }
@@ -285,6 +337,103 @@ document.querySelectorAll('.stepper').forEach(st => {
 // El formulario de compra no debe centrar el mapa al hacer clic.
 document.querySelectorAll('.ficha__compra, .ficha__ver').forEach(el => {
     el.addEventListener('click', e => e.stopPropagation());
+});
+
+
+// --- Desplegable propio ---------------------------------------------------
+// El <select> sigue en el formulario (oculto) para que funcione sin JS; el
+// menú visible es solo una capa encima que sincroniza su valor.
+document.querySelectorAll('.combo').forEach(combo => {
+    const select = combo.querySelector('.combo__nativo');
+    const boton = combo.querySelector('.combo__boton');
+    const texto = combo.querySelector('.combo__texto');
+    const lista = combo.querySelector('.combo__lista');
+
+    const opciones = Array.from(select.options);
+    let indice = Math.max(0, select.selectedIndex);
+
+    texto.textContent = opciones[indice] ? opciones[indice].text : '';
+
+    opciones.forEach((op, i) => {
+        const li = document.createElement('li');
+        li.className = 'combo__opcion';
+        li.setAttribute('role', 'option');
+        li.dataset.valor = op.value;
+        li.textContent = op.text;
+        li.setAttribute('aria-selected', i === indice ? 'true' : 'false');
+
+        li.addEventListener('click', () => elegir(i));
+        lista.appendChild(li);
+    });
+
+    function pintarActiva() {
+        Array.from(lista.children).forEach((li, i) => {
+            li.classList.toggle('activa', i === indice);
+            li.setAttribute('aria-selected', i === indice ? 'true' : 'false');
+        });
+    }
+
+    function abrir() {
+        document.querySelectorAll('.combo--abierto').forEach(c => {
+            if (c !== combo) {
+                c.classList.remove('combo--abierto');
+                c.querySelector('.combo__lista').hidden = true;
+                c.querySelector('.combo__boton').setAttribute('aria-expanded', 'false');
+            }
+        });
+
+        lista.hidden = false;
+        combo.classList.add('combo--abierto');
+        boton.setAttribute('aria-expanded', 'true');
+        pintarActiva();
+
+        const activa = lista.children[indice];
+        if (activa) activa.scrollIntoView({ block: 'nearest' });
+    }
+
+    function cerrar() {
+        lista.hidden = true;
+        combo.classList.remove('combo--abierto');
+        boton.setAttribute('aria-expanded', 'false');
+    }
+
+    function elegir(i) {
+        indice = i;
+        select.selectedIndex = i;
+        texto.textContent = opciones[i].text;
+        cerrar();
+        // Dispara el listener que envía el formulario.
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    boton.addEventListener('click', () => {
+        lista.hidden ? abrir() : cerrar();
+    });
+
+    boton.addEventListener('keydown', e => {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (lista.hidden) { abrir(); return; }
+            indice = e.key === 'ArrowDown'
+                ? Math.min(opciones.length - 1, indice + 1)
+                : Math.max(0, indice - 1);
+            pintarActiva();
+            lista.children[indice].scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            lista.hidden ? abrir() : elegir(indice);
+        } else if (e.key === 'Escape') {
+            cerrar();
+        } else if (e.key === 'Home') {
+            e.preventDefault(); indice = 0; pintarActiva();
+        } else if (e.key === 'End') {
+            e.preventDefault(); indice = opciones.length - 1; pintarActiva();
+        }
+    });
+
+    document.addEventListener('click', e => {
+        if (!combo.contains(e.target)) cerrar();
+    });
 });
 
 // Los desplegables aplican el filtro al cambiar. Se hace con listeners y no
