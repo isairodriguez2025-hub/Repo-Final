@@ -32,7 +32,10 @@ final class Session
 
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
-        session_name('__Host-didi2');
+
+        // El prefijo __Host- obliga a Secure: en HTTP local el navegador
+        // descarta la cookie y la sesión nunca arranca. Se usa solo con HTTPS.
+        session_name($seguro ? '__Host-didi2' : 'didi2_sess');
         session_start();
 
         self::expirar();

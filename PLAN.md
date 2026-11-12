@@ -77,4 +77,4 @@ Por cada bloque:
 |---|---|---|
 | 00 | **completado** | `/health` responde `ok`, cabeceras de seguridad, usuario de app sin DDL, migraciones funcionando |
 | 01 | **completado** | middleware, vistas con escape, 20 pruebas en verde, base reproducible |
-| 02 | siguiente | autenticación, sesiones y control de acceso |
+| 02 | **completado** | registro, login, verificación, recuperación, rate limit y auditoría |
