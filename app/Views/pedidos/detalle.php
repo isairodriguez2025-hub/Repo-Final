@@ -7,6 +7,8 @@
 /** @var bool $esMayorista */
 /** @var bool $esComercio */
 /** @var bool $esRepartidor */
+/** @var array $mensajes */
+/** @var bool $chatAbierto */
 /** @var string|null $mensaje */
 /** @var string|null $error */
 
@@ -104,6 +106,43 @@ if ($esComercio && $estado === 'en_puerta' && !empty($pedido['pin_entrega_visibl
         . $e((string) $pedido['pin_entrega_visible']) . '</div></div>';
 }
 
+// --- Chat del pedido ------------------------------------------------------
+$bloqueChat = '';
+
+if ($chatAbierto) {
+    $hilos = '';
+
+    foreach ($mensajes as $m) {
+        $mio = (int) $m['autor_id'] === (int) \App\Core\Session::obtener('user_id', 0);
+        $alerta = (int) $m['tiene_alerta_desintermediacion'] === 1;
+
+        $hilos .= '<div style="display:flex;justify-content:' . ($mio ? 'flex-end' : 'flex-start') . ';margin-bottom:8px">'
+            . '<div style="max-width:78%;background:' . ($mio ? '#eaf1ec' : '#f3f4f6') . ';'
+            . 'border:1px solid ' . ($alerta ? '#f6d5d5' : 'transparent') . ';'
+            . 'border-radius:12px;padding:9px 13px">'
+            . '<div style="font-size:11px;color:#9ca3af;margin-bottom:2px">'
+            . ($mio ? 'Tú' : $e(substr((string) $m['email'], 0, 3) . '***')) . ' · '
+            . $e(substr((string) $m['created_at'], 11, 5)) . '</div>'
+            . '<div style="font-size:14px;color:#111827;white-space:pre-wrap">' . $e((string) $m['cuerpo']) . '</div>'
+            . ($alerta ? '<div style="font-size:11px;color:#b91c1c;margin-top:4px">Marcado por compartir datos de contacto</div>' : '')
+            . '</div></div>';
+    }
+
+    if ($hilos === '') {
+        $hilos = '<p style="font-size:13px;color:#9ca3af;margin:0 0 10px">Todavía no hay mensajes. '
+            . 'Usa el chat para coordinar la entrega; no compartas teléfonos ni correos.</p>';
+    }
+
+    $bloqueChat = '<h2 id="chat">Mensajes con ' . $e($esMayorista ? $pedido['comercio'] : $pedido['mayorista']) . '</h2>'
+        . '<div style="background:#fff;border:1px solid #E5E7EB;border-radius:12px;padding:14px;max-width:640px">'
+        . '<div style="max-height:320px;overflow-y:auto;margin-bottom:12px">' . $hilos . '</div>'
+        . '<form method="post" action="/pedidos/' . $e($pedido['uuid']) . '/mensaje" style="display:flex;gap:8px;margin:0">'
+        . '<input type="hidden" name="_csrf" value="' . $e($csrf) . '">'
+        . '<input name="cuerpo" placeholder="Escribe un mensaje…" required maxlength="2000" style="flex:1">'
+        . '<button type="submit" style="padding:0 18px">Enviar</button>'
+        . '</form></div>';
+}
+
 $contenido = '<h1>Pedido ' . $e(substr((string) $pedido['uuid'], 0, 8)) . '</h1>'
     . '<p>' . $e($pedido['mayorista']) . ' → ' . $e($pedido['comercio']) . '</p>'
     . ($mensaje !== null ? '<div class="aviso aviso--ok">' . $e($mensaje) . '</div>' : '')
@@ -121,6 +160,7 @@ $contenido = '<h1>Pedido ' . $e(substr((string) $pedido['uuid'], 0, 8)) . '</h1>
     . '<span>Subtotal $' . number_format((float) $pedido['subtotal'], 2) . '</span>'
     . '<span>IVA $' . number_format((float) $pedido['iva'], 2) . '</span>'
     . '<strong style="color:#1a1a1a">Total $' . number_format((float) $pedido['total'], 2) . '</strong></div>'
-    . '<h2>Historial</h2><ul style="padding-left:18px;margin:0">' . $linea . '</ul>';
+    . '<h2>Historial</h2><ul style="padding-left:18px;margin:0">' . $linea . '</ul>'
+    . $bloqueChat;
 
 require __DIR__ . '/../layout.php';

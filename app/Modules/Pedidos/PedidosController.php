@@ -32,6 +32,7 @@ final class PedidosController
         private readonly ?\App\Modules\Pagos\PagoService $pagos = null,
         private readonly ?\App\Modules\Logistica\AsignacionService $asignacion = null,
         private readonly ?\App\Modules\Logistica\PruebaEntregaService $pruebas = null,
+        private readonly ?\App\Modules\Confianza\ChatService $chat = null,
     ) {
     }
 
@@ -217,8 +218,12 @@ final class PedidosController
             return Response::json(['ok' => false, 'error' => ['code' => 'PROHIBIDO', 'message' => 'Este pedido no es tuyo.']], 403);
         }
 
+        $chatAbierto = $this->chat !== null && $this->chat->disponible((int) $pedido['id']);
+
         return $this->vista('pedidos/detalle', [
             'titulo'      => 'Pedido ' . substr((string) $pedido['uuid'], 0, 8),
+            'mensajes'    => $chatAbierto ? $this->chat->mensajes((int) $pedido['id']) : [],
+            'chatAbierto' => $chatAbierto,
             'pedido'      => $pedido,
             'lineas'      => $this->detallePedido((int) $pedido['id']),
             'eventos'     => $this->servicio->eventos((int) $pedido['id']),

@@ -217,7 +217,8 @@ $tarifas = new TarifaService($pdo);
 $asignacion = new AsignacionService($pdo, $tarifas, $pedidoService);
 $pruebas = new PruebaEntregaService($pdo);
 
-$pedidos = new PedidosController($pedidoService, $pdo, __DIR__ . '/../Views', $pagoService, $asignacion, $pruebas);
+$chatService = new ChatService($pdo);
+$pedidos = new PedidosController($pedidoService, $pdo, __DIR__ . '/../Views', $pagoService, $asignacion, $pruebas, $chatService);
 
 $repartidorCtl = new RepartidorController($asignacion, $pruebas, $pedidoService, $pdo, __DIR__ . '/../Views');
 
