@@ -16,7 +16,6 @@ if ($usuario !== null) {
     $enlaces[] = ['/buscar', 'Buscar'];
 
     if ($rol === 'comercio') {
-        $enlaces[] = ['/carrito', 'Carrito'];
         $enlaces[] = ['/pedidos', 'Mis pedidos'];
         $enlaces[] = ['/favoritos', 'Favoritos'];
         $enlaces[] = ['/programados', 'Programados'];
@@ -220,6 +219,44 @@ foreach ($enlaces as [$href, $texto]) {
         .error-campo { font-size: 12px; color: var(--error); display: block; margin-top: 3px; }
         .vacio { color: var(--gris-claro); padding: 20px 0; }
         <?= $estilos ?? '' ?>
+        /* --- Selector de cantidad (compartido) --------------------------- */
+        .stepper { display:inline-flex; align-items:center; border:1px solid #E5E7EB; border-radius:8px; overflow:hidden; background:#fff; }
+        .stepper button {
+            width:32px; height:36px; padding:0; background:#fff; border:0; color:#4b5563;
+            font-size:16px; line-height:1; cursor:pointer;
+            transition: background .12s ease, color .12s ease;
+        }
+        .stepper button:hover { background:#f3f4f6; color:#111827; }
+        .stepper button:active { background:#e5e7eb; }
+        .stepper input {
+            width:52px; height:36px; padding:0; border:0; border-left:1px solid #E5E7EB; border-right:1px solid #E5E7EB;
+            text-align:center; font-size:14px; border-radius:0; appearance:textfield; -moz-appearance:textfield;
+        }
+        .stepper input:focus { outline:none; box-shadow:none; }
+        .stepper input::-webkit-outer-spin-button,
+        .stepper input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+
+        /* --- Botón flotante del carrito ---------------------------------- */
+        .fab-carrito {
+            position: fixed; right: 24px; bottom: 24px; z-index: 90;
+            width: 58px; height: 58px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: #1f4d3a; color: #fff; text-decoration: none;
+            box-shadow: 0 8px 24px rgba(17,24,39,.22), 0 2px 6px rgba(17,24,39,.12);
+            transition: transform .15s ease, background .15s ease, box-shadow .15s ease;
+        }
+        .fab-carrito:hover { background:#17392b; transform: translateY(-2px); box-shadow: 0 12px 28px rgba(17,24,39,.26); }
+        .fab-carrito:active { transform: translateY(0); }
+        .fab-carrito__badge {
+            position: absolute; top: -4px; right: -4px; min-width: 22px; height: 22px; padding: 0 6px;
+            border-radius: 999px; background: #b91c1c; color: #fff;
+            font-size: 12px; font-weight: 600; line-height: 22px; text-align: center;
+            border: 2px solid #fafaf7;
+        }
+        @media (max-width: 640px) {
+            .fab-carrito { right: 16px; bottom: 16px; width: 54px; height: 54px; }
+        }
+
         @media (max-width: 640px) {
             .barra__interior { gap: 14px; padding: 0 16px; height: 56px; }
             /* En móvil la marca se queda en "Didi2" y el menú se desliza. */
@@ -253,6 +290,24 @@ foreach ($enlaces as [$href, $texto]) {
 </main>
 <?php if (!empty($mapa)): ?>
     <script src="/assets/leaflet/leaflet.js"></script>
+<?php endif; ?>
+<?php
+$rolActual = is_array($roles) && $roles !== [] ? (string) $roles[0] : null;
+$enCarrito = str_starts_with((string) ($_SERVER['REQUEST_URI'] ?? ''), '/carrito');
+?>
+<?php if ($usuario !== null && $rolActual === 'comercio' && !$enCarrito): ?>
+    <?php $articulos = \App\Modules\Carrito\CarritoContador::paraUsuario((int) $usuario); ?>
+    <a class="fab-carrito" href="/carrito" aria-label="Ir al carrito<?= $articulos > 0 ? ' (' . $articulos . ' artículos)' : '' ?>">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="9" cy="21" r="1"></circle>
+            <circle cx="20" cy="21" r="1"></circle>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+        <?php if ($articulos > 0): ?>
+            <span class="fab-carrito__badge"><?= $articulos > 99 ? '99+' : $articulos ?></span>
+        <?php endif; ?>
+    </a>
 <?php endif; ?>
 <?php if (!empty($scripts)): ?>
     <script nonce="<?= $e($nonce) ?>"><?= $scripts ?></script>

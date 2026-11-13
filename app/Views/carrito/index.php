@@ -12,7 +12,14 @@ foreach ($resumen['grupos'] as $g) {
         $filas .= '<tr><td><div style="font-weight:500">' . $e($i['nombre']) . $alerta . '</div>'
             . '<div style="font-size:12px;color:#9ca3af">' . $e($i['unidad_venta']) . ' de ' . $e($i['contenido'])
             . ($i['escala_aplicada'] ? ' · ' . $e($i['escala_aplicada']) : '') . '</div></td>'
-            . '<td>' . (int) $i['cantidad'] . '</td>'
+            . '<td>'
+            . '<form method="post" action="/carrito/actualizar" class="stepper stepper--carrito">'
+            . '<input type="hidden" name="_csrf" value="' . $e($csrf) . '">'
+            . '<input type="hidden" name="producto" value="' . $e($i['producto_uuid']) . '">'
+            . '<button type="button" class="stepper__menos" aria-label="Disminuir">−</button>'
+            . '<input type="number" name="cantidad" value="' . (int) $i['cantidad'] . '" min="1" max="' . (int) $i['stock_disponible'] . '" step="1" aria-label="Cantidad">'
+            . '<button type="button" class="stepper__mas" aria-label="Aumentar">+</button>'
+            . '</form></td>'
             . '<td style="font-variant-numeric:tabular-nums">$' . number_format((float) $i['precio_unitario'], 2) . '</td>'
             . '<td style="font-variant-numeric:tabular-nums">$' . number_format((float) $i['total'], 2) . '</td>'
             . '<td style="text-align:right"><form method="post" action="/carrito/quitar" style="margin:0">'
@@ -60,5 +67,41 @@ $contenido = '<h1>Mi carrito</h1>'
               : '<span style="font-size:14px;color:#a56a12">Corrige los avisos para continuar</span>')
           . '</div>'
         : '');
+
+$scripts = <<<'JS'
+(function () {
+  'use strict';
+  document.querySelectorAll('.stepper--carrito').forEach(function (form) {
+    var input = form.querySelector('input[type="number"]');
+    var menos = form.querySelector('.stepper__menos');
+    var mas = form.querySelector('.stepper__mas');
+    if (!input || !menos || !mas) return;
+
+    var max = parseInt(input.getAttribute('max'), 10) || 999;
+
+    function submit() {
+      var v = parseInt(input.value, 10);
+      if (isNaN(v) || v < 1) v = 1;
+      if (v > max) v = max;
+      input.value = v;
+      form.submit();
+    }
+
+    menos.addEventListener('click', function () {
+      var v = parseInt(input.value, 10) || 1;
+      input.value = Math.max(1, v - 1);
+      form.submit();
+    });
+
+    mas.addEventListener('click', function () {
+      var v = parseInt(input.value, 10) || 1;
+      input.value = Math.min(max, v + 1);
+      form.submit();
+    });
+
+    input.addEventListener('change', submit);
+  });
+})();
+JS;
 
 require __DIR__ . '/../layout.php';
