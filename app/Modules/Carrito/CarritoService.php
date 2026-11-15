@@ -56,6 +56,18 @@ final class CarritoService
         return ['ok' => true, 'mensaje' => 'Producto agregado al carrito.'];
     }
 
+    public function actualizar(int $comercioId, string $productoUuid, int $cantidad): void
+    {
+        $producto = $this->repo->productoPorUuid($productoUuid);
+
+        if ($producto === null) {
+            return;
+        }
+
+        $carrito = $this->repo->carritoDe($comercioId);
+        $this->repo->actualizar((int) $carrito['id'], (int) $producto['id'], $cantidad);
+    }
+
     public function quitar(int $comercioId, string $productoUuid): void
     {
         $producto = $this->repo->productoPorUuid($productoUuid);

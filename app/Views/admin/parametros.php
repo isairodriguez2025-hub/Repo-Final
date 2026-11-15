@@ -7,7 +7,7 @@ $filas = '';
 foreach ($parametros as $p) {
     $tipoBadge = '<span style="background:#f3f4f6;padding:2px 8px;border-radius:999px;font-size:12px">' . $e($p['tipo']) . '</span>';
     $filas .= '<tr><td><code>' . $e($p['clave']) . '</code></td>'
-        . '<td><input type="text" name="valor" value="' . $e($p['valor']) . '" style="width:100%;max-width:300px" data-clave="' . $e($p['clave']) . '" class="param-input"></td>'
+        . '<td><input type="text" name="valor" value="' . $e($p['valor_actual']) . '" style="width:100%;max-width:300px" data-clave="' . $e($p['clave']) . '" class="param-input"></td>'
         . '<td>' . $tipoBadge . '</td>'
         . '<td>' . $e($p['descripcion'] ?? '') . '</td>'
         . '<td style="text-align:right">v' . $p['version'] . '</td>'
