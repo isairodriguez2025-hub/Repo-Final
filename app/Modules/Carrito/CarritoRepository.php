@@ -73,6 +73,16 @@ final class CarritoRepository
         $this->pdo->prepare('DELETE FROM carrito_items WHERE carrito_id = ?')->execute([$carritoId]);
     }
 
+    public function actualizar(int $carritoId, int $productoId, int $cantidad): void
+    {
+        if ($cantidad < 1) {
+            $this->quitar($carritoId, $productoId);
+            return;
+        }
+        $this->pdo->prepare('UPDATE carrito_items SET cantidad = ? WHERE carrito_id = ? AND producto_id = ?')
+            ->execute([$cantidad, $carritoId, $productoId]);
+    }
+
     public function productoPorUuid(string $uuid): ?array
     {
         $stmt = $this->pdo->prepare(

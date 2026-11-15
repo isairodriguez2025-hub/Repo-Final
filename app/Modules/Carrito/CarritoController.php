@@ -85,6 +85,26 @@ final class CarritoController
         return Response::redirect($destino . ($resultado['ok'] ? '?ok=1' : '?error=' . urlencode($resultado['mensaje'])));
     }
 
+    public function actualizar(Request $peticion): Response
+    {
+        $comercioId = $this->comercioId();
+
+        if ($comercioId === null) {
+            return Response::redirect('/carrito?error=' . urlencode('Debes iniciar sesión como comercio.'));
+        }
+
+        $productoUuid = (string) $peticion->input('producto', '');
+        $cantidad = (int) $peticion->input('cantidad', 1);
+
+        if ($cantidad < 1) {
+            $this->carrito->quitar($comercioId, $productoUuid);
+        } else {
+            $this->carrito->actualizar($comercioId, $productoUuid, $cantidad);
+        }
+
+        return Response::redirect('/carrito?ok=1');
+    }
+
     public function quitar(Request $peticion): Response
     {
         $comercioId = $this->comercioId();

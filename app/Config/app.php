@@ -61,6 +61,7 @@ use App\Modules\Confianza\ConfianzaController;
 use App\Modules\Confianza\ReclamoService;
 use App\Modules\Confianza\ResenaService;
 use App\Modules\Finanzas\FinanzasService;
+use App\Modules\Admin\AdminController;
 use App\Modules\Facturacion\FacturacionController;
 use App\Modules\Facturacion\FacturacionService;
 
@@ -199,6 +200,7 @@ $favoritosCtl = new FavoritosController($favoritoService, $pdo, __DIR__ . '/../V
 $programadoService = new ProgramadoService($pdo, new \App\Modules\Catalogo\PrecioService(), $notificaciones);
 $programadosCtl = new ProgramadosController($programadoService, $pdo, __DIR__ . '/../Views');
 
+$admin = new AdminController($pdo, __DIR__ . '/../Views');
 $facturacion = new FacturacionController(
     new FacturacionService($pdo),
     $pdo,
@@ -240,6 +242,7 @@ $soloComercio = [$seguridad, new AuthRequired(), new RoleRequired(['comercio'])]
 
 $router->get('/carrito', [$carrito, 'ver'], $soloComercio);
 $router->post('/carrito/agregar', [$carrito, 'agregar'], [...$soloComercio, new CsrfProtect()]);
+$router->post('/carrito/actualizar', [$carrito, 'actualizar'], [...$soloComercio, new CsrfProtect()]);
 $router->post('/carrito/quitar', [$carrito, 'quitar'], [...$soloComercio, new CsrfProtect()]);
 $router->post('/carrito/vaciar', [$carrito, 'vaciar'], [...$soloComercio, new CsrfProtect()]);
 $router->get('/checkout', [$carrito, 'checkoutForm'], $soloComercio);
@@ -288,6 +291,18 @@ $router->get('/facturacion', [$facturacion, 'index'], [$seguridad, new AuthRequi
 $router->post('/facturacion/datos', [$facturacion, 'guardarDatos'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 $router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/factura', [$facturacion, 'facturar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 $router->get('/facturas/{uuid:[0-9a-fA-F-]{36}}/xml', [$facturacion, 'xml'], [$seguridad, new AuthRequired()]);
+
+// --- Panel de administración ------------------------------------------------
+$router->get('/admin', [$admin, 'dashboard'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc'])]);
+$router->get('/admin/usuarios', [$admin, 'listarUsuarios'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
+$router->get('/admin/usuarios/{id:\d+}', [$admin, 'detalleUsuario'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
+$router->post('/admin/usuarios/{id:\d+}/rol', [$admin, 'cambiarRol'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
+$router->post('/admin/usuarios/{id:\d+}/estado', [$admin, 'cambiarEstado'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
+$router->get('/admin/reclamos', [$admin, 'listarReclamos'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc'])]);
+$router->post('/admin/reclamos/{id:\d+}/resolver', [$admin, 'resolverReclamo'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
+$router->get('/admin/parametros', [$admin, 'listarParametros'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
+$router->post('/admin/parametros/{clave}', [$admin, 'actualizarParametro'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
+$router->get('/admin/parametros/{clave}/historial', [$admin, 'historialParametro'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
 
 // --- Favoritos y programados ----------------------------------------------
 $router->get('/favoritos', [$favoritosCtl, 'index'], $soloComercio);
