@@ -37,7 +37,7 @@ El código es el mismo; solo cambia cómo se arranca.
 | 11 | Tracking en vivo | Posiciones GPS, ETA cacheada, mapa de seguimiento | 10 |
 | 12 | Favoritos y programados | Favoritos, plantillas recurrentes, reabastecimiento | 07, 09 |
 | 13 | Finanzas, reseñas y soporte | Paneles por rol, exportaciones, reseñas, reclamos | 08, 10 |
-| 14 | Facturación CFDI 4.0 | Datos fiscales, PAC, facturas | 08 |
+| 14 | **completado** | facturación CFDI 4.0 con datos fiscales, PAC de práctica y XML timbrado |
 | 15 | Panel de administración | CRUD, KYC, disputas, parámetros versionados | 03, 08, 10 |
 | 16 | Endurecimiento y PWA | Revisión OWASP, CSP final, aviso de privacidad, PWA | Todos |
 | 17 | Carga, despliegue y respaldo | k6, EXPLAIN, despliegue, restauración probada | 16 |

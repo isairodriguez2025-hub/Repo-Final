@@ -27,6 +27,7 @@ if ($usuario !== null) {
     }
 
     $enlaces[] = ['/finanzas', 'Finanzas'];
+    $enlaces[] = ['/facturacion', 'Facturación'];
     $enlaces[] = ['/notificaciones', 'Avisos'];
     $enlaces[] = ['/perfil', 'Mi perfil'];
     if (in_array($rol, ['admin_total', 'admin_kyc'], true)) {

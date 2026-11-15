@@ -61,6 +61,8 @@ use App\Modules\Confianza\ConfianzaController;
 use App\Modules\Confianza\ReclamoService;
 use App\Modules\Confianza\ResenaService;
 use App\Modules\Finanzas\FinanzasService;
+use App\Modules\Facturacion\FacturacionController;
+use App\Modules\Facturacion\FacturacionService;
 
 /**
  * Arranque de la aplicación: registra servicios y rutas.
@@ -197,6 +199,12 @@ $favoritosCtl = new FavoritosController($favoritoService, $pdo, __DIR__ . '/../V
 $programadoService = new ProgramadoService($pdo, new \App\Modules\Catalogo\PrecioService(), $notificaciones);
 $programadosCtl = new ProgramadosController($programadoService, $pdo, __DIR__ . '/../Views');
 
+$facturacion = new FacturacionController(
+    new FacturacionService($pdo),
+    $pdo,
+    __DIR__ . '/../Views',
+);
+
 $confianza = new ConfianzaController(
     new ResenaService($pdo),
     new ChatService($pdo),
@@ -274,6 +282,12 @@ $router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/mensaje', [$confianza, 'mensaje'
 $router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/reclamo', [$confianza, 'reclamar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
 $router->get('/finanzas', [$confianza, 'finanzas'], [$seguridad, new AuthRequired()]);
 $router->get('/finanzas/export', [$confianza, 'exportar'], [$seguridad, new AuthRequired()]);
+
+// --- Facturación CFDI 4.0 ------------------------------------------------
+$router->get('/facturacion', [$facturacion, 'index'], [$seguridad, new AuthRequired()]);
+$router->post('/facturacion/datos', [$facturacion, 'guardarDatos'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
+$router->post('/pedidos/{uuid:[0-9a-fA-F-]{36}}/factura', [$facturacion, 'facturar'], [$seguridad, new AuthRequired(), new CsrfProtect()]);
+$router->get('/facturas/{uuid:[0-9a-fA-F-]{36}}/xml', [$facturacion, 'xml'], [$seguridad, new AuthRequired()]);
 
 // --- Favoritos y programados ----------------------------------------------
 $router->get('/favoritos', [$favoritosCtl, 'index'], $soloComercio);
