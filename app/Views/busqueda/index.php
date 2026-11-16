@@ -545,9 +545,152 @@ document.querySelectorAll('.filtros select').forEach(sel => {
     sel.addEventListener('change', () => document.querySelector('.filtros').submit());
 });
 
-// Al mover el mapa se actualizan las coordenadas y se repite la búsqueda,
-// pero solo si el centro se desplazó de verdad. Hacer zoom no debe recargar
-// la página: era lo que hacía sentir lento el mapa.
+// --- Búsqueda AJAX sin recargar la página -------------------------------
+function buscarAJAX(filtros) {
+    const params = new URLSearchParams(filtros).toString();
+    return fetch('/buscar/productos?' + params, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    }).then(r => r.json()).then(d => {
+        if (!d.ok) return null;
+        return d.data;
+    }).catch(() => null);
+}
+
+function actualizarMapaYResultados(data) {
+    if (!data) return;
+
+    // Limpiar marcadores existentes.
+    marcadores.forEach(m => mapa.removeLayer(m));
+    marcadores.length = 0;
+
+    // Actualizar contador.
+    const contador = document.querySelector('.buscador__contador');
+    if (contador) {
+        contador.textContent = data.resultados.length + ' producto' + (data.resultados.length === 1 ? '' : 's');
+    }
+
+    // Actualizar fichas.
+    const contenedor = document.querySelector('.buscador__resultados');
+    if (contenedor) {
+        const fichas = data.resultados.map((r, i) => {
+            const dist = number_format((float) r.distancia_km, 1);
+            const stock = (int) r.stock_disponible;
+            const minimo = (int) r.cantidad_minima;
+            const paso = max(1, (int) r.multiplo_venta);
+            let html = '<article class="ficha" data-i="' + i + '" data-lat="' + esc(r.mayorista.latitud) + '" data-lng="' + esc(r.mayorista.longitud) + '">'
+                + '<div class="ficha__izq">'
+                + '<h3>' + esc(r.nombre) + '</h3>'
+                + '<p class="ficha__prov">' + esc(r.mayorista.nombre)
+                + ' <span class="badge">' + esc(r.categoria) + '</span>'
+                + '<a class="ficha__ver" href="/mayoristas/' + esc(r.mayorista.uuid) + '">Ver mayorista</a></p>'
+                + '<div class="ficha__precio">$' + number_format((float) r.precio_base, 2)
+                + '<span>+ IVA · ' + esc(r.unidad_venta) + ' de ' + esc(r.contenido) + '</span></div>'
+                + '</div>'
+                + '<div class="ficha__der">'
+                + '<span class="ficha__dist">' + dist + ' km</span>'
+                + '<span class="ficha__stock">' + stock + ' disponibles</span>';
+            if (puedeComprar) {
+                html += '<form method="post" action="/carrito/agregar" class="ficha__compra">'
+                    + '<input type="hidden" name="_csrf" value="' + esc(csrf) + '">'
+                    + '<input type="hidden" name="producto" value="' + esc(r.uuid) + '">'
+                    + '<input type="hidden" name="volver" value="/buscar">'
+                    + '<div class="stepper">'
+                    + '<button type="button" class="stepper__menos" aria-label="Quitar uno">&minus;</button>'
+                    + '<input type="number" name="cantidad" value="' + minimo + '" min="' + minimo + '" step="' + paso + '" max="' + stock + '" aria-label="Cantidad">'
+                    + '<button type="button" class="stepper__mas" aria-label="Agregar uno">+</button>'
+                    + '</div>'
+                    + '<button type="submit" class="btn-agregar">Agregar</button>'
+                    + '</form>';
+            }
+            html += '</div></article>';
+            return html;
+        }).join('');
+
+        if (fichas === '') {
+            contenedor.innerHTML = '<p class="vacio">No hay productos en este radio. Prueba ampliando la distancia o cambiando el texto.</p>';
+        } else {
+            contenedor.innerHTML = fichas;
+        }
+
+        // Re-enlazar eventos de las fichas.
+        contenedor.querySelectorAll('.ficha').forEach(f => {
+            f.addEventListener('click', () => resaltar(parseInt(f.dataset.i, 10), true));
+        });
+        contenedor.querySelectorAll('.ficha__compra, .ficha__ver').forEach(el => {
+            el.addEventListener('click', e => e.stopPropagation());
+        });
+        // Re-enlazar botones de stepper.
+        contenedor.querySelectorAll('.stepper').forEach(st => {
+            const inp = st.querySelector('input');
+            const paso = parseInt(inp.step, 10) || 1;
+            const min = parseInt(inp.min, 10) || 1;
+            const max = parseInt(inp.max, 10) || 9999;
+            st.querySelector('.stepper__menos').addEventListener('click', () => {
+                inp.value = Math.max(min, (parseInt(inp.value, 10) || min) - paso);
+            });
+            st.querySelector('.stepper__mas').addEventListener('click', () => {
+                inp.value = Math.min(max, (parseInt(inp.value, 10) || min) + paso);
+            });
+        });
+    }
+
+    // Actualizar marcadores del mapa.
+    if (data.resultados.length > 0) {
+        data.resultados.forEach((d, i) => {
+            const m = L.marker([d.lat, d.lng], { icon: iconoProducto }).addTo(mapa);
+            m.bindPopup('<strong>' + d.nombre + '</strong><br>' + d.mayo + '<br>$' + d.precio + ' · ' + d.dist + ' km<br><small>' + (d.categoria || '') + '</small>');
+            m.on('click', () => resaltar(i, false));
+            marcadores.push(m);
+        });
+    } else if (categorias.length > 0) {
+        // Sin resultados: mostrar marcadores de categorías generales.
+        leyenda.addTo(mapa);
+        categorias.forEach(cat => {
+            const icono = iconosCategoria[cat.nombre] || iconoDefault;
+            const m = L.marker([mapa.getCenter().lat, mapa.getCenter().lng], { icon: icono }).addTo(mapa);
+            m.bindPopup('<strong>' + cat.nombre + '</strong><br>Productos disponibles en esta categoría');
+            marcadores.push(m);
+        });
+    }
+}
+
+function esc(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+function number_format(num, decimals) {
+    return Number(num).toFixed(decimals);
+}
+
+// Interceptar submit del formulario de filtros (sin recargar la página).
+document.querySelector('.filtros').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const form = this;
+    const params = new URLSearchParams(new FormData(form));
+    params.set('lat', document.getElementById('f-lat').value);
+    params.set('lng', document.getElementById('f-lng').value);
+    buscarAJAX(params).then(data => {
+        if (data) actualizarMapaYResultados(data);
+    });
+});
+
+// Interceptar cambio de desplegable (sin recargar la página).
+document.querySelectorAll('.filtros select').forEach(sel => {
+    sel.addEventListener('change', () => {
+        const form = document.querySelector('.filtros');
+        const params = new URLSearchParams(new FormData(form));
+        params.set('lat', document.getElementById('f-lat').value);
+        params.set('lng', document.getElementById('f-lng').value);
+        buscarAJAX(params).then(data => {
+            if (data) actualizarMapaYResultados(data);
+        });
+    });
+});
+
+// Al mover el mapa se actualizan las coordenadas y se busca con AJAX,
+// sin recargar la página.
 let temporizador = null;
 let centroPrevio = mapa.getCenter();
 
@@ -567,7 +710,6 @@ mapa.on('moveend', () => {
     document.getElementById('f-lat').value = c.lat.toFixed(6);
     document.getElementById('f-lng').value = c.lng.toFixed(6);
 
-    // Menos de 300 m es un ajuste de zoom o un temblor: no se recarga.
     if (movido < 0.3) {
         return;
     }
@@ -575,7 +717,16 @@ mapa.on('moveend', () => {
     centroPrevio = c;
     clearTimeout(temporizador);
     temporizador = setTimeout(() => {
-        document.querySelector('.filtros').submit();
+        const params = new URLSearchParams();
+        params.set('q', filtros.q);
+        params.set('categoria_id', filtros.categoria_id);
+        params.set('radio', filtros.radio);
+        params.set('orden', filtros.orden);
+        params.set('lat', c.lat.toFixed(6));
+        params.set('lng', c.lng.toFixed(6));
+        buscarAJAX(params).then(data => {
+            if (data) actualizarMapaYResultados(data);
+        });
     }, 600);
 });
 JS;
