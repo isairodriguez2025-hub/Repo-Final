@@ -304,6 +304,13 @@ $router->get('/admin/parametros', [$admin, 'listarParametros'], [$seguridad, new
 $router->post('/admin/parametros/{clave}', [$admin, 'actualizarParametro'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
 $router->get('/admin/parametros/{clave}/historial', [$admin, 'historialParametro'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
 
+// --- Aviso de privacidad -------------------------------------------------
+$router->get('/aviso-privacidad', function (): Response {
+    $nonce = base64_encode(random_bytes(16));
+    $vista = new View(__DIR__ . '/../Views', $nonce);
+    return Response::html($vista->render('privacidad', ['nonce' => $nonce, 'csrf' => Csrf::token()]))->withNonce($nonce);
+});
+
 // --- Favoritos y programados ----------------------------------------------
 $router->get('/favoritos', [$favoritosCtl, 'index'], $soloComercio);
 $router->post('/favoritos/agregar', [$favoritosCtl, 'agregar'], [...$soloComercio, new CsrfProtect()]);
@@ -342,9 +349,6 @@ $router->get('/comercio', static fn (): Response => Response::redirect('/buscar'
 
 $router->get('/mayorista', static fn (): Response => Response::redirect('/mayorista/productos'),
     [$seguridad, new AuthRequired(), new RoleRequired(['mayorista'])]);
-
-$router->get('/admin', static fn (): Response => Response::redirect('/admin/kyc'),
-    [$seguridad, new AuthRequired(), new RoleRequired(['admin_total', 'admin_kyc'])]);
 
 $contenedor = new Container();
 $contenedor->set(Logger::class, $logger);
