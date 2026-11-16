@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /aviso-privacidad
+Sitemap: https://did2.isai.io/sitemap.xml

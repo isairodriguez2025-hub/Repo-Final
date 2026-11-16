@@ -91,6 +91,11 @@ final class Response
         return $this->body;
     }
 
+    public function headers(): array
+    {
+        return $this->headers;
+    }
+
     /** Envía la respuesta al navegador con las cabeceras de seguridad. */
     public function send(): void
     {
@@ -103,10 +108,14 @@ final class Response
         http_response_code($this->status);
 
         $seguridad = [
-            'X-Content-Type-Options'  => 'nosniff',
             'X-Frame-Options'         => 'DENY',
             'Referrer-Policy'         => 'strict-origin-when-cross-origin',
             'Permissions-Policy'      => 'geolocation=(self)',
+            'Cross-Origin-Opener-Policy'  => 'same-origin',
+            'Cross-Origin-Resource-Policy' => 'same-origin',
+            'X-Permitted-Cross-Domain-Policies' => 'none',
+            'X-Download-Options'          => 'noopen',
+            'X-Content-Type-Options'      => 'nosniff',
             // El nonce va también en style-src: sin él, el <style> de la plantilla
             // se bloquea y la página sale sin diseño. style-src-attr permite los
             // atributos style="…" de las vistas, que no pueden ejecutar código.

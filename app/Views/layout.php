@@ -46,6 +46,7 @@ foreach ($enlaces as [$href, $texto]) {
 <html lang="es">
 <head>
     <meta charset="utf-8">
+    <link rel="manifest" href="/manifest.json">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= $e($titulo) ?> · Didi2</title>
     <?php if (!empty($mapa)): ?>
@@ -314,5 +315,8 @@ $enCarrito = str_starts_with((string) ($_SERVER['REQUEST_URI'] ?? ''), '/carrito
 <?php if (!empty($scripts)): ?>
     <script nonce="<?= $e($nonce) ?>"><?= $scripts ?></script>
 <?php endif; ?>
+<script nonce="<?= $nonce ?? '' ?>">
+if ("serviceWorker" in navigator) { window.addEventListener("load", function() { navigator.serviceWorker.register("/sw.js"); }); }
+</script>
 </body>
 </html>

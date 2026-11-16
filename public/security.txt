@@ -1,0 +1,5 @@
+Host: https://did2.isai.io
+Contact: mailto:soporte@did2.mx
+Expires: 2027-11-15T00:00:00+00:00
+Acknowledgments: https://github.com/isairodriguez2025-hub/didi2-b2b
+Policy: https://github.com/isairodriguez2025-hub/didi2-b2b/security
