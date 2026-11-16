@@ -80,9 +80,10 @@ final class BusquedaController
             'data'       => $resultado['ok'] ? $resultado['data'] : null,
             'error'      => $resultado['ok'] ? null : ($resultado['error']['message'] ?? 'Error al buscar.'),
             'filtros'    => [
-                'q'     => (string) $peticion->query('q', ''),
-                'radio' => (float) $peticion->query('radio', BusquedaService::RADIO_DEFAULT),
-                'orden' => (string) $peticion->query('orden', 'distancia'),
+                'q'            => (string) $peticion->query('q', ''),
+                'categoria_id' => (int) ($peticion->query('categoria_id') ?? 0),
+                'radio'        => (float) $peticion->query('radio', BusquedaService::RADIO_DEFAULT),
+                'orden'        => (string) $peticion->query('orden', 'distancia'),
             ],
             'lat'        => $lat,
             'lng'        => $lng,

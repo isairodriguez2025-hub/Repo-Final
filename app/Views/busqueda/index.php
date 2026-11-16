@@ -104,6 +104,11 @@ if ($paginas > 1) {
     }
 }
 
+$filtrosJson = json_encode([
+    'q' => $filtros['q'] ?? '',
+    'categoria_id' => (int) ($filtros['categoria_id'] ?? 0),
+], JSON_UNESCAPED_UNICODE) ?: '{}';
+
 $json = json_encode(array_map(static fn (array $r): array => [
     'nombre'   => $r['nombre'],
     'lat'      => $r['mayorista']['latitud'],
@@ -111,7 +116,14 @@ $json = json_encode(array_map(static fn (array $r): array => [
     'precio'   => $r['precio_base'],
     'dist'     => $r['distancia_km'],
     'mayo'     => $r['mayorista']['nombre'],
+    'categoria'=> $r['categoria'],
 ], $resultados), JSON_UNESCAPED_UNICODE) ?: '[]';
+
+// Categorías para los marcadores generales del mapa (sin búsqueda activa).
+$jsonCategorias = json_encode(array_map(static fn (array $c): array => [
+    'id'   => (int) $c['id'],
+    'nombre' => $c['nombre'],
+], $categorias), JSON_UNESCAPED_UNICODE) ?: '[]';
 
 $mapa = true;
 $anchoCompleto = true;
@@ -281,23 +293,114 @@ $estilos = <<<'CSS'
     .ficha__compra { width:100%; margin-left:0; }
 }
 .paginacion { display:flex; gap:12px; align-items:center; justify-content:center; margin-top:28px; }
+
+/* Marcadores personalizados del mapa */
+.marker-cat {
+    background: none !important;
+    border: none !important;
+    font-size: 28px;
+    text-align: center;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+.marker-producto {
+    background: none !important;
+    border: none !important;
+    font-size: 24px;
+    text-align: center;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+.marker-default {
+    background: none !important;
+    border: none !important;
+    font-size: 24px;
+    text-align: center;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.3));
+}
+
+/* Leyenda de categorías en el mapa */
+.leaflet-control.legend {
+    background: #fff;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 13px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    line-height: 1.6;
+}
+.leaflet-control.legend strong {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 13px;
+    color: #1f4d3a;
+}
+.leaflet-control.legend span {
+    display: inline-block;
+    width: 18px;
+    text-align: center;
+    margin-right: 4px;
+}
 CSS;
 
 $scripts = <<<JS
 const datos = {$json};
+const categorias = {$jsonCategorias};
+const filtros = {$filtrosJson};
 const mapa = L.map('mapa', { scrollWheelZoom: false }).setView([{$lat}, {$lng}], 12);
-window.mapa = mapa; // expuesto para depuración
+window.mapa = mapa;
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19, attribution: '© OpenStreetMap'
 }).addTo(mapa);
 
 const marcadores = [];
-datos.forEach((d, i) => {
-    const m = L.marker([d.lat, d.lng]).addTo(mapa);
-    m.bindPopup('<strong>' + d.nombre + '</strong><br>' + d.mayo + '<br>$' + d.precio + ' · ' + d.dist + ' km');
-    m.on('click', () => resaltar(i, false));
-    marcadores.push(m);
-});
+
+// Iconos por categoría para los marcadores generales del mapa.
+const iconosCategoria = {
+    'Abarrotes': L.divIcon({ className: 'marker-cat', html: '🛒', iconSize: [32, 32], iconAnchor: [16, 32] }),
+    'Limpieza': L.divIcon({ className: 'marker-cat', html: '🧹', iconSize: [32, 32], iconAnchor: [16, 32] }),
+    'Ferretería': L.divIcon({ className: 'marker-cat', html: '🔧', iconSize: [32, 32], iconAnchor: [16, 32] }),
+    'Perecederos': L.divIcon({ className: 'marker-cat', html: '🥬', iconSize: [32, 32], iconAnchor: [16, 32] }),
+    'Inflamables': L.divIcon({ className: 'marker-cat', html: '⚠️', iconSize: [32, 32], iconAnchor: [16, 32] }),
+};
+
+// Icono por defecto para productos cuando hay búsqueda activa.
+const iconoProducto = L.divIcon({ className: 'marker-producto', html: '📦', iconSize: [28, 28], iconAnchor: [14, 28] });
+
+// Icono para mayoristas sin productos visibles.
+const iconoDefault = L.divIcon({ className: 'marker-default', html: '📍', iconSize: [28, 28], iconAnchor: [14, 28] });
+
+// Leyenda de categorías (solo visible cuando no hay búsqueda activa).
+const leyenda = L.control({ position: 'bottomleft' });
+leyenda.onAdd = function () {
+    const div = L.DomUtil.create('div', 'leaflet-control legend');
+    div.innerHTML = '<strong>Categorías</strong>' +
+        categorias.map(c => {
+            const icono = iconosCategoria[c.nombre] || '';
+            return '<span>' + icono + '</span> ' + c.nombre;
+        }).join('<br>');
+    return div;
+};
+
+if (datos.length === 0 && categorias.length > 0) {
+    // Sin resultados de búsqueda: mostrar marcadores de categorías generales.
+    leyenda.addTo(mapa);
+    categorias.forEach(cat => {
+        const icono = iconosCategoria[cat.nombre] || iconoDefault;
+        const m = L.marker([{$lat}, {$lng}], { icon: icono }).addTo(mapa);
+        m.bindPopup('<strong>' + cat.nombre + '</strong><br>Productos disponibles en esta categoría');
+        marcadores.push(m);
+    });
+} else {
+    // Con búsqueda activa o resultados: mostrar marcadores de productos.
+    datos.forEach((d, i) => {
+        const m = L.marker([d.lat, d.lng], { icon: iconoProducto }).addTo(mapa);
+        m.bindPopup('<strong>' + d.nombre + '</strong><br>' + d.mayo + '<br>$' + d.precio + ' · ' + d.dist + ' km<br><small>' + (d.categoria || '') + '</small>');
+        m.on('click', () => resaltar(i, false));
+        marcadores.push(m);
+    });
+}
 
 function resaltar(i, centrar) {
     document.querySelectorAll('.ficha').forEach(f => f.classList.remove('activa'));
