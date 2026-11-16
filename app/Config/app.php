@@ -62,6 +62,7 @@ use App\Modules\Confianza\ReclamoService;
 use App\Modules\Confianza\ResenaService;
 use App\Modules\Finanzas\FinanzasService;
 use App\Modules\Admin\AdminController;
+use App\Modules\PostMvp\PostMvpController;
 use App\Modules\Facturacion\FacturacionController;
 use App\Modules\Facturacion\FacturacionService;
 
@@ -201,6 +202,7 @@ $programadoService = new ProgramadoService($pdo, new \App\Modules\Catalogo\Preci
 $programadosCtl = new ProgramadosController($programadoService, $pdo, __DIR__ . '/../Views');
 
 $admin = new AdminController($pdo, __DIR__ . '/../Views');
+$postmvp = new PostMvpController($pdo, __DIR__ . '/../Views');
 $facturacion = new FacturacionController(
     new FacturacionService($pdo),
     $pdo,
@@ -303,6 +305,17 @@ $router->post('/admin/reclamos/{id:\d+}/resolver', [$admin, 'resolverReclamo'], 
 $router->get('/admin/parametros', [$admin, 'listarParametros'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
 $router->post('/admin/parametros/{clave}', [$admin, 'actualizarParametro'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
 $router->get('/admin/parametros/{clave}/historial', [$admin, 'historialParametro'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
+
+// --- Post-MVP: Fletes, BNPL, Licitaciones --------------------------------
+$router->get('/postmvp', [$postmvp, 'dashboard'], [$seguridad, new AuthRequired()]);
+$router->get('/postmvp/consolidaciones', [$postmvp, 'listarConsolidaciones'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
+$router->post('/postmvp/consolidaciones', [$postmvp, 'crearConsolidacion'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
+$router->get('/postmvp/bnpl', [$postmvp, 'listarBnpl'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
+$router->post('/postmvp/bnpl', [$postmvp, 'crearBnpl'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
+$router->post('/postmvp/bnpl/{id:\d+}/pagar', [$postmvp, 'registrarPago'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
+$router->get('/postmvp/licitaciones', [$postmvp, 'listarLicitaciones'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total'])]);
+$router->post('/postmvp/licitaciones', [$postmvp, 'crearLicitacion'], [$seguridad, new AuthRequired(), new RoleRequired(['admin_total']), new CsrfProtect()]);
+$router->post('/postmvp/licitaciones/{id:\d+}/cotizar', [$postmvp, 'cotizarLicitacion'], [...$soloComercio, new CsrfProtect()]);
 
 // --- Aviso de privacidad -------------------------------------------------
 $router->get('/aviso-privacidad', function (): Response {
